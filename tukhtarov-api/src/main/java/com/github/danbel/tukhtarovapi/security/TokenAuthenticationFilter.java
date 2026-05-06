@@ -25,28 +25,38 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.endsWith("/auth/login") || path.endsWith("/error");
+        return path.endsWith("/auth/login") || path.endsWith("/error") || "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7).trim();
-            try {
-                AuthenticatedUser user = tokenService.parse(token);
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        user,
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + user.role().name()))
-                );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            } catch (Exception ignored) {
-                SecurityContextHolder.clearContext();
-            }
+        if (header == null || !header.startsWith("Bearer ")) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\":\"Unauthorized\"}");
+            return;
         }
+
+        String token = header.substring(7).trim();
+        try {
+            AuthenticatedUser user = tokenService.parse(token);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                    user,
+                    null,
+                    List.of(new SimpleGrantedAuthority("ROLE_" + user.role().name()))
+            );
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        } catch (Exception exception) {
+            SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\":\"Unauthorized\"}");
+            return;
+        }
+
         filterChain.doFilter(request, response);
     }
 }
