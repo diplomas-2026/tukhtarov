@@ -13,6 +13,7 @@ import {
   CssBaseline,
   Divider,
   Grid,
+  Drawer,
   InputAdornment,
   LinearProgress,
   List,
@@ -29,6 +30,9 @@ import {
   Typography,
   alpha,
   createTheme,
+  IconButton,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
@@ -36,6 +40,7 @@ import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded';
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
@@ -499,6 +504,9 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
 }
 
 function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
+  const muiTheme = useTheme();
+  const isDesktop = useMediaQuery(muiTheme.breakpoints.up('lg'));
+  const drawerWidth = 320;
   const [data, setData] = useState({
     dashboard: null,
     orders: [],
@@ -550,6 +558,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [apiErrorSeverity, setApiErrorSeverity] = useState('error');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const tabs = ROLE_TABS[auth.role] || ROLE_TABS.CLIENT;
   const allowedStatuses = useMemo(() => getAllowedStatuses(data.statuses, auth.role), [data.statuses, auth.role]);
@@ -844,6 +853,66 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const pageMeta = TAB_TITLES[tab] || TAB_TITLES.dashboard;
+  const handleTabSelect = (value) => {
+    setTab(value);
+    if (!isDesktop) {
+      setDrawerOpen(false);
+    }
+  };
+
+  const drawerContent = (
+    <Box sx={{ p: 2.5, height: '100%', bgcolor: 'rgba(255,255,255,0.96)' }}>
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="overline" color="text.secondary">
+            Активный профиль
+          </Typography>
+          <Typography variant="h6" sx={{ mt: 0.5 }}>
+            {auth.fullName}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {auth.roleLabel}
+          </Typography>
+          {auth.clientCompanyName ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {auth.clientCompanyName}
+            </Typography>
+          ) : null}
+        </Box>
+        <Divider />
+        <List disablePadding>
+          {tabs.map((item) => {
+            const active = tab === item.value;
+            return (
+              <ListItemButton
+                key={item.value}
+                selected={active}
+                onClick={() => handleTabSelect(item.value)}
+                sx={{
+                  mb: 0.75,
+                  borderRadius: 3,
+                  '&.Mui-selected': {
+                    bgcolor: alpha(muiTheme.palette.primary.main, 0.08),
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 36, color: active ? 'primary.main' : 'text.secondary' }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    fontWeight: active ? 700 : 600,
+                    color: active ? 'primary.main' : 'text.primary',
+                  }}
+                />
+              </ListItemButton>
+            );
+          })}
+        </List>
+      </Stack>
+    </Box>
+  );
 
   const renderDashboard = () => {
     const statusEntries = Object.entries(dashboard.statusCounts || {});
@@ -1483,10 +1552,16 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           color: 'text.primary',
           backdropFilter: 'blur(18px)',
           borderBottom: '1px solid rgba(95,99,104,0.14)',
+          zIndex: (themeValue) => themeValue.zIndex.drawer + 1,
         }}
       >
         <Toolbar sx={{ gap: 2, minHeight: 76 }}>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+            {!isDesktop ? (
+              <IconButton onClick={() => setDrawerOpen(true)} edge="start" sx={{ mr: 0.25 }}>
+                <MenuRoundedIcon />
+              </IconButton>
+            ) : null}
             <Avatar sx={{ bgcolor: 'primary.main', width: 42, height: 42 }}>И</Avatar>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="h6" noWrap>
@@ -1507,184 +1582,139 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           </Button>
         </Toolbar>
       </AppBar>
+      <Drawer
+        variant={isDesktop ? 'permanent' : 'temporary'}
+        open={isDesktop ? true : drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+            borderRight: '1px solid rgba(95,99,104,0.14)',
+            bgcolor: 'rgba(255,255,255,0.96)',
+            backdropFilter: 'blur(18px)',
+            top: isDesktop ? 76 : 0,
+            height: isDesktop ? 'calc(100% - 76px)' : '100%',
+          },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
 
-      <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Grid container spacing={2.2}>
-          <Grid item xs={12} lg={3}>
-            <Paper
-              sx={{
-                p: 2.5,
-                position: { lg: 'sticky' },
-                top: 96,
-                bgcolor: 'rgba(255,255,255,0.92)',
-                backdropFilter: 'blur(18px)',
-              }}
-            >
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="overline" color="text.secondary">
-                    Активный профиль
-                  </Typography>
-                  <Typography variant="h6" sx={{ mt: 0.5 }}>
-                    {auth.fullName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {auth.roleLabel}
-                  </Typography>
-                  {auth.clientCompanyName ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      {auth.clientCompanyName}
-                    </Typography>
-                  ) : null}
-                </Box>
-                <Divider />
-                <List disablePadding>
-                  {tabs.map((item) => {
-                    const active = tab === item.value;
-                    return (
-                      <ListItemButton
-                        key={item.value}
-                        selected={active}
-                        onClick={() => setTab(item.value)}
-                        sx={{
-                          mb: 0.75,
-                          borderRadius: 3,
-                          '&.Mui-selected': {
-                            bgcolor: alpha(theme.palette.primary.main, 0.08),
-                          },
-                        }}
-                      >
-                        <ListItemIcon sx={{ minWidth: 36, color: active ? 'primary.main' : 'text.secondary' }}>
-                          {item.icon}
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={item.label}
-                          primaryTypographyProps={{
-                            fontWeight: active ? 700 : 600,
-                            color: active ? 'primary.main' : 'text.primary',
-                          }}
-                        />
-                      </ListItemButton>
-                    );
-                  })}
-                </List>
+      <Box sx={{ ml: { lg: `${drawerWidth}px` } }}>
+        <Container maxWidth="xl" sx={{ py: 3 }}>
+          <Stack spacing={2.2}>
+            <Paper sx={{ p: 2.5, bgcolor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(18px)' }}>
+              <Stack spacing={1}>
+                <Typography variant="h5">{pageMeta.title}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {pageMeta.subtitle}
+                </Typography>
               </Stack>
             </Paper>
-          </Grid>
 
-          <Grid item xs={12} lg={9}>
-            <Stack spacing={2.2}>
-              <Paper sx={{ p: 2.5, bgcolor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(18px)' }}>
-                <Stack spacing={1}>
-                  <Typography variant="h5">{pageMeta.title}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {pageMeta.subtitle}
-                  </Typography>
-                </Stack>
-              </Paper>
+            {loading ? <LinearProgress sx={{ borderRadius: 999 }} /> : null}
+            {apiError ? <Alert severity={apiErrorSeverity}>{apiError}</Alert> : null}
 
-              {loading ? <LinearProgress sx={{ borderRadius: 999 }} /> : null}
-              {apiError ? <Alert severity={apiErrorSeverity}>{apiError}</Alert> : null}
-
-              {tab === 'dashboard' ? renderDashboard() : null}
-              {tab === 'orders' || tab === 'tasks' ? renderOrdersWorkspace(auth.role === 'CLIENT' ? data.orders : filteredOrders) : null}
-              {tab === 'create-order' ? (
-                <SectionCard title="Новый заказ" subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту">
-                  <Box component="form" onSubmit={handleCreateOrder}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={4}>
-                        <TextField
-                          label="Номер заказа"
-                          value={createOrderForm.orderNumber}
-                          onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, orderNumber: event.target.value }))}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={8}>
-                        <TextField
-                          label="Название"
-                          value={createOrderForm.title}
-                          onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, title: event.target.value }))}
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Описание"
-                          value={createOrderForm.description}
-                          onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
-                          multiline
-                          minRows={4}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField select label="Клиент" value={createOrderForm.clientCompanyId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
-                          {data.clients.map((client) => (
-                            <MenuItem key={client.id} value={client.id}>
-                              {client.name}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField select label="Менеджер" value={createOrderForm.managerId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, managerId: event.target.value }))}>
-                          {byRole(data.users, 'MANAGER').map((user) => (
-                            <MenuItem key={user.id} value={user.id}>
-                              {user.fullName}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField select label="Исполнитель" value={createOrderForm.executorId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, executorId: event.target.value }))}>
-                          {byRole(data.users, 'EXECUTOR').map((user) => (
-                            <MenuItem key={user.id} value={user.id}>
-                              {user.fullName}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField select label="Приоритет" value={createOrderForm.priority} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, priority: event.target.value }))}>
-                          {data.priorities.map((priority) => (
-                            <MenuItem key={priority.value} value={priority.value}>
-                              {priority.label}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField
-                          type="date"
-                          label="План"
-                          InputLabelProps={{ shrink: true }}
-                          value={createOrderForm.plannedDate}
-                          onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, plannedDate: event.target.value }))}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField
-                          type="date"
-                          label="Дедлайн"
-                          InputLabelProps={{ shrink: true }}
-                          value={createOrderForm.dueDate}
-                          onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, dueDate: event.target.value }))}
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Button type="submit" variant="contained" disabled={actionLoading}>
-                          Создать заказ
-                        </Button>
-                      </Grid>
+            {tab === 'dashboard' ? renderDashboard() : null}
+            {tab === 'orders' || tab === 'tasks' ? renderOrdersWorkspace(auth.role === 'CLIENT' ? data.orders : filteredOrders) : null}
+            {tab === 'create-order' ? (
+              <SectionCard title="Новый заказ" subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту">
+                <Box component="form" onSubmit={handleCreateOrder}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        label="Номер заказа"
+                        value={createOrderForm.orderNumber}
+                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, orderNumber: event.target.value }))}
+                      />
                     </Grid>
-                  </Box>
-                </SectionCard>
-              ) : null}
-              {tab === 'users' ? renderUsers() : null}
-              {tab === 'clients' ? renderClients() : null}
-              {tab === 'statuses' ? renderStatuses() : null}
-            </Stack>
-          </Grid>
-        </Grid>
-      </Container>
+                    <Grid item xs={12} md={8}>
+                      <TextField
+                        label="Название"
+                        value={createOrderForm.title}
+                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, title: event.target.value }))}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Описание"
+                        value={createOrderForm.description}
+                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
+                        multiline
+                        minRows={4}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField select label="Клиент" value={createOrderForm.clientCompanyId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
+                        {data.clients.map((client) => (
+                          <MenuItem key={client.id} value={client.id}>
+                            {client.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField select label="Менеджер" value={createOrderForm.managerId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, managerId: event.target.value }))}>
+                        {byRole(data.users, 'MANAGER').map((user) => (
+                          <MenuItem key={user.id} value={user.id}>
+                            {user.fullName}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField select label="Исполнитель" value={createOrderForm.executorId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, executorId: event.target.value }))}>
+                        {byRole(data.users, 'EXECUTOR').map((user) => (
+                          <MenuItem key={user.id} value={user.id}>
+                            {user.fullName}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField select label="Приоритет" value={createOrderForm.priority} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, priority: event.target.value }))}>
+                        {data.priorities.map((priority) => (
+                          <MenuItem key={priority.value} value={priority.value}>
+                            {priority.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        type="date"
+                        label="План"
+                        InputLabelProps={{ shrink: true }}
+                        value={createOrderForm.plannedDate}
+                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, plannedDate: event.target.value }))}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        type="date"
+                        label="Дедлайн"
+                        InputLabelProps={{ shrink: true }}
+                        value={createOrderForm.dueDate}
+                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, dueDate: event.target.value }))}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Button type="submit" variant="contained" disabled={actionLoading}>
+                        Создать заказ
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </SectionCard>
+            ) : null}
+            {tab === 'users' ? renderUsers() : null}
+            {tab === 'clients' ? renderClients() : null}
+            {tab === 'statuses' ? renderStatuses() : null}
+          </Stack>
+        </Container>
+      </Box>
 
       <Snackbar
         open={snackbar.open}
