@@ -532,6 +532,30 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
   });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const heroMetrics = [
+    { value: '4 роли', label: 'Администратор, менеджер, исполнитель и клиент' },
+    { value: '1 чат', label: 'Отдельный чат поддержки для связи клиента с командой' },
+    { value: '5 сек', label: 'Автообновление чатов без WebSocket' },
+  ];
+  const featureCards = [
+    {
+      title: 'Понятный старт',
+      text: 'Клиент регистрируется сам, входит в систему и сразу видит личный кабинет и чат поддержки.',
+    },
+    {
+      title: 'Без лишних кнопок',
+      text: 'Заказы, статусы и общение разделены по ролям, чтобы интерфейс был простым для обычных пользователей.',
+    },
+    {
+      title: 'Для производства',
+      text: 'Менеджер и администратор быстро переводят запрос в заказ и ведут его до отгрузки.',
+    },
+  ];
+  const landingSteps = [
+    'Клиент создает аккаунт и заходит в систему.',
+    'Пишет запрос в чат поддержки и описывает задачу.',
+    'Менеджер связывается с клиентом и запускает работу по заказу.',
+  ];
 
   const handleLoginSubmit = async (event) => {
     event.preventDefault();
@@ -579,165 +603,299 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
     <Box
       sx={{
         minHeight: '100vh',
-        display: 'grid',
-        placeItems: 'center',
+        position: 'relative',
+        overflow: 'hidden',
         px: 2,
-        py: 4,
+        py: { xs: 2, md: 4 },
+        background:
+          'radial-gradient(circle at top left, rgba(26,115,232,0.14), transparent 32%), radial-gradient(circle at right 20%, rgba(15,157,88,0.12), transparent 24%), linear-gradient(180deg, #f8fbff 0%, #f6f8fc 100%)',
       }}
     >
-      <Container maxWidth="lg">
-        <Grid container spacing={3} alignItems="stretch">
-          <Grid item xs={12} md={6}>
-            <Card
-              sx={{
-                height: '100%',
-                overflow: 'hidden',
-                background: 'linear-gradient(145deg, rgba(26,115,232,0.96) 0%, rgba(15,157,88,0.92) 100%)',
-                color: '#fff',
-              }}
-            >
-              <CardContent sx={{ p: { xs: 3, md: 4 }, height: '100%' }}>
-                <Stack spacing={2.5} sx={{ height: '100%', justifyContent: 'space-between' }}>
-                  <Stack spacing={1.5}>
-                    <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.88)' }}>
-                      ПК «Импульс»
-                    </Typography>
-                    <Typography variant="h4" sx={{ maxWidth: 520 }}>
-                      Управление заказами, статусами и чатом с поддержкой в одном месте
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.92)', maxWidth: 540 }}>
-                      Система помогает клиентам быстро оставить запрос, а менеджерам и администраторам держать производство под контролем.
-                    </Typography>
-                  </Stack>
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -120,
+            left: -120,
+            width: 320,
+            height: 320,
+            borderRadius: '50%',
+            background: 'rgba(26,115,232,0.10)',
+            filter: 'blur(4px)',
+          }}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            right: -100,
+            top: 140,
+            width: 260,
+            height: 260,
+            borderRadius: '50%',
+            background: 'rgba(15,157,88,0.12)',
+            filter: 'blur(4px)',
+          }}
+        />
+      </Box>
 
-                  <Stack spacing={1.5}>
-                    <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
-                      Как это работает
-                    </Typography>
-                    <Stack spacing={1.1}>
-                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
-                        • Клиент регистрируется и получает доступ к личному кабинету.
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
-                        • Для нового заказа пишется запрос в чат поддержки.
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
-                        • Менеджер или администратор берет запрос в работу и переводит его в заказ.
-                      </Typography>
+      <Container maxWidth="xl" sx={{ position: 'relative' }}>
+        <Stack spacing={4}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ pt: 1 }}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Avatar sx={{ bgcolor: 'primary.main', width: 44, height: 44 }}>И</Avatar>
+              <Box>
+                <Typography variant="h6">ПК «Импульс»</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Управление заказами и клиентскими запросами
+                </Typography>
+              </Box>
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', sm: 'flex' } }}>
+              <Button variant="text" onClick={() => setMode('login')}>
+                Войти
+              </Button>
+              <Button variant="contained" onClick={() => setMode('register')}>
+                Регистрация
+              </Button>
+            </Stack>
+          </Stack>
+
+          <Grid container spacing={3} alignItems="stretch">
+            <Grid item xs={12} lg={7}>
+              <Stack spacing={3}>
+                <Card
+                  sx={{
+                    overflow: 'hidden',
+                    background:
+                      'linear-gradient(135deg, rgba(26,115,232,0.98) 0%, rgba(26,115,232,0.86) 40%, rgba(15,157,88,0.90) 100%)',
+                    color: '#fff',
+                    minHeight: { xs: 'auto', lg: 540 },
+                  }}
+                >
+                  <CardContent sx={{ p: { xs: 3, md: 4, lg: 5 }, height: '100%' }}>
+                    <Stack spacing={4} sx={{ height: '100%', justifyContent: 'space-between' }}>
+                      <Stack spacing={2.2}>
+                        <Chip
+                          label="Лендинг для системы управления заказами"
+                          sx={{
+                            alignSelf: 'flex-start',
+                            bgcolor: 'rgba(255,255,255,0.16)',
+                            color: '#fff',
+                            fontWeight: 600,
+                          }}
+                        />
+                        <Typography
+                          variant="h3"
+                          sx={{
+                            fontSize: { xs: '2.4rem', md: '3.4rem' },
+                            lineHeight: 1.08,
+                            maxWidth: 700,
+                            fontWeight: 800,
+                          }}
+                        >
+                          Заказы, чат с поддержкой и рабочий кабинет в одной удобной системе
+                        </Typography>
+                        <Typography variant="h6" sx={{ maxWidth: 680, fontWeight: 400, color: 'rgba(255,255,255,0.92)' }}>
+                          Клиенты регистрируются сами, пишут запрос в общий чат, а менеджеры и администраторы превращают его в понятный рабочий процесс.
+                        </Typography>
+                      </Stack>
+
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <Button
+                          variant="contained"
+                          color="inherit"
+                          onClick={() => setMode('register')}
+                          sx={{ bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#f8fbff' } }}
+                        >
+                          Создать аккаунт
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          onClick={() => setMode('login')}
+                          sx={{
+                            borderColor: 'rgba(255,255,255,0.44)',
+                            color: '#fff',
+                            '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.08)' },
+                          }}
+                        >
+                          Войти в систему
+                        </Button>
+                      </Stack>
                     </Stack>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
+                  </CardContent>
+                </Card>
 
-          <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%', boxShadow: '0 24px 60px rgba(60,64,67,0.14)' }}>
-              <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-                <Stack spacing={2.5}>
-                  <Box>
-                    <Typography variant="h5">{isLogin ? 'Войти в систему' : 'Регистрация клиента'}</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
-                      {isLogin
-                        ? 'Используйте рабочий логин и пароль, чтобы открыть нужное рабочее место.'
-                        : 'Создайте аккаунт, чтобы войти в личный кабинет и написать в чат поддержки.'}
-                    </Typography>
-                  </Box>
+                <Grid container spacing={2.2}>
+                  {heroMetrics.map((metric) => (
+                    <Grid item xs={12} sm={4} key={metric.label}>
+                      <Card sx={{ height: '100%' }}>
+                        <CardContent sx={{ p: 2.3 }}>
+                          <Typography variant="h5" color="primary.main">
+                            {metric.value}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
+                            {metric.label}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
 
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      variant={isLogin ? 'contained' : 'outlined'}
-                      onClick={() => {
-                        setMode('login');
-                        setErrorMessage('');
-                      }}
-                    >
-                      Войти
-                    </Button>
-                    <Button
-                      variant={!isLogin ? 'contained' : 'outlined'}
-                      onClick={() => {
-                        setMode('register');
-                        setErrorMessage('');
-                      }}
-                    >
-                      Регистрация
-                    </Button>
-                  </Stack>
+                <Grid container spacing={2.2}>
+                  {featureCards.map((feature) => (
+                    <Grid item xs={12} md={4} key={feature.title}>
+                      <Card sx={{ height: '100%' }}>
+                        <CardContent sx={{ p: 2.4 }}>
+                          <Stack spacing={1.1}>
+                            <Typography variant="subtitle1">{feature.title}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {feature.text}
+                            </Typography>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
 
-                  {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-
-                  {isLogin ? (
-                    <Box component="form" onSubmit={handleLoginSubmit}>
-                      <Stack spacing={2}>
-                        <TextField
-                          label="Логин или email"
-                          value={loginForm.login}
-                          onChange={(event) => setLoginForm((previous) => ({ ...previous, login: event.target.value }))}
-                          autoComplete="username"
-                        />
-                        <TextField
-                          label="Пароль"
-                          type="password"
-                          value={loginForm.password}
-                          onChange={(event) => setLoginForm((previous) => ({ ...previous, password: event.target.value }))}
-                          autoComplete="current-password"
-                        />
-                        <Button type="submit" variant="contained" size="large" disabled={loading}>
-                          {loading ? 'Выполняется вход...' : 'Войти'}
-                        </Button>
+                <Card>
+                  <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
+                    <Stack spacing={1.8}>
+                      <Typography variant="h6">Как работает сценарий для клиента</Typography>
+                      <Stack spacing={1.2}>
+                        {landingSteps.map((step, index) => (
+                          <Stack key={step} direction="row" spacing={1.5} alignItems="flex-start">
+                            <Avatar sx={{ width: 28, height: 28, bgcolor: 'primary.main', fontSize: '0.8rem' }}>
+                              {index + 1}
+                            </Avatar>
+                            <Typography variant="body2" color="text.secondary" sx={{ pt: 0.3 }}>
+                              {step}
+                            </Typography>
+                          </Stack>
+                        ))}
                       </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Stack>
+            </Grid>
+
+            <Grid item xs={12} lg={5}>
+              <Card sx={{ height: '100%', boxShadow: '0 24px 60px rgba(60,64,67,0.14)' }}>
+                <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                  <Stack spacing={2.5}>
+                    <Box>
+                      <Typography variant="h5">{isLogin ? 'Вход в систему' : 'Регистрация клиента'}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
+                        {isLogin
+                          ? 'Введите логин и пароль, чтобы открыть рабочее пространство.'
+                          : 'Создайте аккаунт и получите доступ к чату поддержки и личному кабинету.'}
+                      </Typography>
                     </Box>
-                  ) : (
-                    <Box component="form" onSubmit={handleRegisterSubmit}>
-                      <Stack spacing={2}>
-                        <TextField
-                          label="Логин"
-                          value={registerForm.login}
-                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, login: event.target.value }))}
-                          autoComplete="username"
-                        />
-                        <TextField
-                          label="ФИО"
-                          value={registerForm.fullName}
-                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, fullName: event.target.value }))}
-                          autoComplete="name"
-                        />
-                        <TextField
-                          label="Email"
-                          value={registerForm.email}
-                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, email: event.target.value }))}
-                          autoComplete="email"
-                        />
-                        <TextField
-                          label="Телефон"
-                          value={registerForm.phone}
-                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
-                          autoComplete="tel"
-                        />
-                        <TextField
-                          label="Название компании"
-                          value={registerForm.companyName}
-                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, companyName: event.target.value }))}
-                        />
-                        <TextField
-                          label="Пароль"
-                          type="password"
-                          value={registerForm.password}
-                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, password: event.target.value }))}
-                          autoComplete="new-password"
-                        />
-                        <Button type="submit" variant="contained" size="large" disabled={loading}>
-                          {loading ? 'Создание...' : 'Создать аккаунт'}
-                        </Button>
-                      </Stack>
-                    </Box>
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
+
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant={isLogin ? 'contained' : 'outlined'}
+                        onClick={() => {
+                          setMode('login');
+                          setErrorMessage('');
+                        }}
+                      >
+                        Войти
+                      </Button>
+                      <Button
+                        variant={!isLogin ? 'contained' : 'outlined'}
+                        onClick={() => {
+                          setMode('register');
+                          setErrorMessage('');
+                        }}
+                      >
+                        Регистрация
+                      </Button>
+                    </Stack>
+
+                    {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+
+                    {isLogin ? (
+                      <Box component="form" onSubmit={handleLoginSubmit}>
+                        <Stack spacing={2}>
+                          <TextField
+                            label="Логин или email"
+                            value={loginForm.login}
+                            onChange={(event) => setLoginForm((previous) => ({ ...previous, login: event.target.value }))}
+                            autoComplete="username"
+                          />
+                          <TextField
+                            label="Пароль"
+                            type="password"
+                            value={loginForm.password}
+                            onChange={(event) => setLoginForm((previous) => ({ ...previous, password: event.target.value }))}
+                            autoComplete="current-password"
+                          />
+                          <Button type="submit" variant="contained" size="large" disabled={loading}>
+                            {loading ? 'Выполняется вход...' : 'Войти'}
+                          </Button>
+                        </Stack>
+                      </Box>
+                    ) : (
+                      <Box component="form" onSubmit={handleRegisterSubmit}>
+                        <Stack spacing={2}>
+                          <TextField
+                            label="Логин"
+                            value={registerForm.login}
+                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, login: event.target.value }))}
+                            autoComplete="username"
+                          />
+                          <TextField
+                            label="ФИО"
+                            value={registerForm.fullName}
+                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, fullName: event.target.value }))}
+                            autoComplete="name"
+                          />
+                          <TextField
+                            label="Email"
+                            value={registerForm.email}
+                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, email: event.target.value }))}
+                            autoComplete="email"
+                          />
+                          <TextField
+                            label="Телефон"
+                            value={registerForm.phone}
+                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
+                            autoComplete="tel"
+                          />
+                          <TextField
+                            label="Название компании"
+                            value={registerForm.companyName}
+                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, companyName: event.target.value }))}
+                          />
+                          <TextField
+                            label="Пароль"
+                            type="password"
+                            value={registerForm.password}
+                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, password: event.target.value }))}
+                            autoComplete="new-password"
+                          />
+                          <Button type="submit" variant="contained" size="large" disabled={loading}>
+                            {loading ? 'Создание...' : 'Создать аккаунт'}
+                          </Button>
+                        </Stack>
+                      </Box>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-        </Grid>
+        </Stack>
       </Container>
 
       <Snackbar
