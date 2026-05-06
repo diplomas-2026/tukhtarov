@@ -10,7 +10,6 @@ import {
   CircularProgress,
   Container,
   CssBaseline,
-  Divider,
   Grid,
   MenuItem,
   Paper,
@@ -189,15 +188,18 @@ function SectionCard({ title, subtitle, action, children }) {
 function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
   const [form, setForm] = useState({ login: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
+    setErrorMessage('');
     try {
       const response = await login(form.login, form.password);
       setAuthToken(response.token);
       onSuccess(response.user, response.token);
     } catch (error) {
+      setErrorMessage(error.message);
       setSnackbar({ open: true, message: error.message, severity: 'error' });
     } finally {
       setLoading(false);
@@ -217,6 +219,7 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
             </Box>
             <Box component="form" onSubmit={handleSubmit}>
               <Stack spacing={2}>
+                {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
                 <TextField
                   label="Логин или email"
                   value={form.login}
@@ -237,12 +240,6 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
                 </Button>
               </Stack>
             </Box>
-            <Divider />
-            <Typography variant="body2" color="text.secondary">
-              Тестовые учетные данные после seed:
-              {' '}
-              admin / admin123, manager / manager123, executor / executor123, client / client123
-            </Typography>
           </Stack>
         </CardContent>
       </Card>
@@ -305,12 +302,15 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const [statusForm, setStatusForm] = useState({ status: '', comment: '' });
   const [commentForm, setCommentForm] = useState({ message: '', visibleToClient: auth.role === 'CLIENT' });
   const [actionLoading, setActionLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [apiErrorSeverity, setApiErrorSeverity] = useState('error');
 
   const tabs = ROLE_TABS[auth.role] || ROLE_TABS.CLIENT;
   const allowedStatuses = useMemo(() => getAllowedStatuses(data.statuses, auth.role), [data.statuses, auth.role]);
   const selectedOrder = orderDetails[selectedOrderId] || data.orders.find((order) => order.id === selectedOrderId) || null;
 
   const refreshWorkspace = async (preferOrderId = selectedOrderId) => {
+    setApiError('');
     const workspace = await loadWorkspaceData();
     setData(workspace);
     if (workspace.orders.length && !workspace.orders.some((order) => order.id === selectedOrderId)) {
@@ -410,15 +410,20 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     if (error?.status === 401) {
       clearAuthToken();
       onLogout();
+      setApiErrorSeverity('error');
+      setApiError('Сессия истекла. Войдите снова.');
       showMessage('Сессия истекла. Войдите снова.', 'error');
       return true;
     }
+    setApiErrorSeverity('error');
+    setApiError(error.message);
     showMessage(error.message, 'error');
     return false;
   };
 
   const handleRefresh = async () => {
     setLoading(true);
+    setApiError('');
     try {
       await refreshWorkspace();
     } catch (error) {
@@ -431,6 +436,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const handleCreateOrder = async (event) => {
     event.preventDefault();
     setActionLoading(true);
+    setApiError('');
     try {
       const created = await createOrder({
         ...createOrderForm,
@@ -460,6 +466,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const handleCreateUser = async (event) => {
     event.preventDefault();
     setActionLoading(true);
+    setApiError('');
     try {
       await createUser({
         ...createUserForm,
@@ -487,6 +494,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const handleCreateClient = async (event) => {
     event.preventDefault();
     setActionLoading(true);
+    setApiError('');
     try {
       await createClient(createClientForm);
       setCreateClientForm({
@@ -510,6 +518,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     event.preventDefault();
     if (!selectedOrder) return;
     setActionLoading(true);
+    setApiError('');
     try {
       const detail = await changeOrderStatus(selectedOrder.id, {
         status: statusForm.status,
@@ -529,6 +538,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     event.preventDefault();
     if (!selectedOrder) return;
     setActionLoading(true);
+    setApiError('');
     try {
       const detail = await addOrderComment(selectedOrder.id, {
         message: commentForm.message,
@@ -1080,7 +1090,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                   <Typography variant="h6">{auth.fullName}</Typography>
                   <Chip sx={{ mt: 1 }} label={auth.roleLabel} color="primary" size="small" />
                 </Box>
-                <Divider />
+                <Box sx={{ height: 1, backgroundColor: 'rgba(15, 76, 129, 0.14)' }} />
                 <Tabs
                   orientation="vertical"
                   variant="scrollable"
@@ -1104,11 +1114,12 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             </Paper>
           </Grid>
 
-          <Grid item xs={12} lg={9}>
-            <Stack spacing={2}>
-              {loading ? (
-                <Card>
-                  <CardContent>
+        <Grid item xs={12} lg={9}>
+          <Stack spacing={2}>
+            {apiError ? <Alert severity={apiErrorSeverity}>{apiError}</Alert> : null}
+            {loading ? (
+              <Card>
+                <CardContent>
                     <Stack direction="row" spacing={2} alignItems="center">
                       <CircularProgress size={20} />
                       <Typography>Загружаем данные...</Typography>
