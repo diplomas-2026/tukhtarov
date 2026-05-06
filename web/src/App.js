@@ -562,7 +562,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
   const refreshWorkspace = async (preferOrderId = selectedOrderId) => {
     setApiError('');
-    const workspace = await loadWorkspaceData();
+    const workspace = await loadWorkspaceData(auth.role);
     setData(workspace);
 
     const fallbackOrderId = workspace.orders[0]?.id || null;

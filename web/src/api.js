@@ -66,24 +66,40 @@ export function me() {
   return request('/auth/me');
 }
 
-export function loadWorkspaceData() {
-  return Promise.all([
-    request('/dashboard'),
-    request('/orders'),
-    request('/users/list'),
-    request('/clients/list'),
-    request('/meta/roles'),
-    request('/meta/statuses'),
-    request('/meta/priorities'),
-  ]).then(([dashboard, orders, users, clients, roles, statuses, priorities]) => ({
-    dashboard,
-    orders,
-    users,
-    clients,
-    roles,
-    statuses,
-    priorities,
-  }));
+export function loadWorkspaceData(role) {
+  const requests = {
+    dashboard: request('/dashboard'),
+    orders: request('/orders'),
+  };
+
+  if (role === 'ADMIN' || role === 'MANAGER' || role === 'EXECUTOR') {
+    requests.statuses = request('/meta/statuses');
+  }
+
+  if (role === 'ADMIN' || role === 'MANAGER') {
+    requests.users = request('/users/list');
+    requests.clients = request('/clients/list');
+    requests.roles = request('/meta/roles');
+    requests.priorities = request('/meta/priorities');
+  }
+
+  return Promise.all(Object.values(requests)).then((responses) => {
+    const keys = Object.keys(requests);
+    const payload = keys.reduce((accumulator, key, index) => {
+      accumulator[key] = responses[index];
+      return accumulator;
+    }, {});
+
+    return {
+      dashboard: payload.dashboard,
+      orders: payload.orders,
+      users: payload.users || [],
+      clients: payload.clients || [],
+      roles: payload.roles || [],
+      statuses: payload.statuses || [],
+      priorities: payload.priorities || [],
+    };
+  });
 }
 
 export function loadOrderDetails(orderId) {
