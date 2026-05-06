@@ -1,4 +1,4 @@
-const API_BASE = process.env.REACT_APP_API_BASE_URL || 'https://tukhtarov.danbel.ru/api/';
+const API_BASE = (process.env.REACT_APP_API_BASE_URL || 'https://tukhtarov.danbel.ru/api/').replace(/\/+$/, '');
 const TOKEN_KEY = 'tukhtarov_token';
 
 let authToken = localStorage.getItem(TOKEN_KEY) || '';
@@ -21,6 +21,7 @@ export function getStoredToken() {
 }
 
 async function request(path, options = {}) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
@@ -29,7 +30,7 @@ async function request(path, options = {}) {
     headers.Authorization = `Bearer ${authToken}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${API_BASE}${normalizedPath}`, {
     ...options,
     headers,
   });
