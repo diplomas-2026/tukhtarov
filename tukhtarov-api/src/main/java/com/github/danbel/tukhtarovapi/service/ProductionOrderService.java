@@ -13,6 +13,7 @@ import com.github.danbel.tukhtarovapi.repository.OrderStatusHistoryRepository;
 import com.github.danbel.tukhtarovapi.repository.ProductionOrderRepository;
 import com.github.danbel.tukhtarovapi.security.AuthenticatedUser;
 import com.github.danbel.tukhtarovapi.web.dto.ChangeStatusRequest;
+import com.github.danbel.tukhtarovapi.web.dto.ChatStateDto;
 import com.github.danbel.tukhtarovapi.web.dto.CommentDto;
 import com.github.danbel.tukhtarovapi.web.dto.CreateCommentRequest;
 import com.github.danbel.tukhtarovapi.web.dto.CreateOrderRequest;
@@ -144,24 +145,34 @@ public class ProductionOrderService {
         return getOrder(id, currentUser);
     }
 
-    public OrderDetailsDto addComment(Long id, CreateCommentRequest request, AuthenticatedUser currentUser) {
-        ProductionOrder order = productionOrderRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Заказ не найден"));
-        ensureAccess(order, currentUser);
+    public OrderDetailsDto addChatMessage(Long id, CreateCommentRequest request, AuthenticatedUser currentUser) {
+        ProductionOrder order = loadOrderForChat(id, currentUser);
         orderCommentRepository.save(OrderComment.builder()
                 .order(order)
                 .authorName(currentUser.fullName())
                 .authorRole(currentUser.role())
                 .message(request.message())
-                .visibleToClient(currentUser.role() == UserRole.CLIENT || request.visibleToClient())
+                .visibleToClient(true)
                 .createdAt(LocalDateTime.now())
                 .build());
         return getOrder(id, currentUser);
     }
 
     @Transactional(readOnly = true)
-    public List<CommentDto> getComments(Long id, AuthenticatedUser currentUser) {
-        return getOrder(id, currentUser).comments();
+    public List<CommentDto> getChatMessages(Long id, AuthenticatedUser currentUser) {
+        loadOrderForChat(id, currentUser);
+        return orderCommentRepository.findByOrderIdOrderByCreatedAtAsc(id)
+                .stream()
+                .map(ApiMapper::toCommentDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ChatStateDto getChatState(Long id, AuthenticatedUser currentUser) {
+        loadOrderForChat(id, currentUser);
+        return orderCommentRepository.findFirstByOrderIdOrderByCreatedAtDescIdDesc(id)
+                .map(comment -> new ChatStateDto(comment.getId(), comment.getCreatedAt()))
+                .orElse(new ChatStateDto(null, null));
     }
 
     @Transactional(readOnly = true)
@@ -227,6 +238,26 @@ public class ProductionOrderService {
             return;
         }
         throw new AccessDeniedException("Доступ к заказу запрещён");
+    }
+
+    private ProductionOrder loadOrderForChat(Long id, AuthenticatedUser currentUser) {
+        ProductionOrder order = productionOrderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Заказ не найден"));
+        if (currentUser.role() == UserRole.ADMIN) {
+            return order;
+        }
+        if (currentUser.role() == UserRole.MANAGER
+                && order.getManager() != null
+                && order.getManager().getId().equals(currentUser.id())) {
+            return order;
+        }
+        if (currentUser.role() == UserRole.CLIENT
+                && currentUser.clientCompanyId() != null
+                && order.getClientCompany() != null
+                && order.getClientCompany().getId().equals(currentUser.clientCompanyId())) {
+            return order;
+        }
+        throw new AccessDeniedException("Чат доступен только администратору, менеджеру заказа и клиенту этого заказа");
     }
 
     private void appendHistory(ProductionOrder order, OrderStatus status, String comment, AuthenticatedUser currentUser) {

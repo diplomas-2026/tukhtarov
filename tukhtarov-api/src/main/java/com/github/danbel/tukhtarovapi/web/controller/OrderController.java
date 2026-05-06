@@ -3,6 +3,7 @@ package com.github.danbel.tukhtarovapi.web.controller;
 import com.github.danbel.tukhtarovapi.service.ProductionOrderService;
 import com.github.danbel.tukhtarovapi.security.AuthenticatedUser;
 import com.github.danbel.tukhtarovapi.web.dto.ChangeStatusRequest;
+import com.github.danbel.tukhtarovapi.web.dto.ChatStateDto;
 import com.github.danbel.tukhtarovapi.web.dto.CommentDto;
 import com.github.danbel.tukhtarovapi.web.dto.CreateCommentRequest;
 import com.github.danbel.tukhtarovapi.web.dto.CreateOrderRequest;
@@ -12,6 +13,7 @@ import com.github.danbel.tukhtarovapi.web.dto.StatusHistoryDto;
 import com.github.danbel.tukhtarovapi.web.dto.UpdateOrderRequest;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -59,14 +61,31 @@ public class OrderController {
 
     @PostMapping("/orders/{id}/comments")
     public OrderDetailsDto addComment(@PathVariable Long id,
-                                      @RequestBody CreateCommentRequest request,
+                                      @Valid @RequestBody CreateCommentRequest request,
                                       @AuthenticationPrincipal AuthenticatedUser currentUser) {
-        return productionOrderService.addComment(id, request, currentUser);
+        return productionOrderService.addChatMessage(id, request, currentUser);
     }
 
     @GetMapping("/orders/{id}/comments")
     public List<CommentDto> comments(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser currentUser) {
-        return productionOrderService.getComments(id, currentUser);
+        return productionOrderService.getChatMessages(id, currentUser);
+    }
+
+    @GetMapping("/orders/{id}/chat/state")
+    public ChatStateDto chatState(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return productionOrderService.getChatState(id, currentUser);
+    }
+
+    @GetMapping("/orders/{id}/chat/messages")
+    public List<CommentDto> chatMessages(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return productionOrderService.getChatMessages(id, currentUser);
+    }
+
+    @PostMapping("/orders/{id}/chat/messages")
+    public OrderDetailsDto sendChatMessage(@PathVariable Long id,
+                                           @Valid @RequestBody CreateCommentRequest request,
+                                           @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return productionOrderService.addChatMessage(id, request, currentUser);
     }
 
     @GetMapping("/orders/{id}/history")

@@ -106,6 +106,21 @@ export function loadOrderDetails(orderId) {
   return request(`/orders/${orderId}`);
 }
 
+export function loadOrderChatState(orderId) {
+  return request(`/orders/${orderId}/chat/state`);
+}
+
+export function loadOrderChatMessages(orderId) {
+  return request(`/orders/${orderId}/chat/messages`);
+}
+
+export function sendOrderChatMessage(orderId, payload) {
+  return request(`/orders/${orderId}/chat/messages`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function createOrder(payload) {
   return request('/orders', {
     method: 'POST',
@@ -128,10 +143,7 @@ export function changeOrderStatus(orderId, payload) {
 }
 
 export function addOrderComment(orderId, payload) {
-  return request(`/orders/${orderId}/comments`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  return sendOrderChatMessage(orderId, payload);
 }
 
 export function createUser(payload) {

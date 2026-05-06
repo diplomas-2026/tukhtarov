@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   AppBar,
@@ -47,17 +47,19 @@ import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import {
-  addOrderComment,
   changeOrderStatus,
   clearAuthToken,
   createClient,
   createOrder,
   createUser,
+  loadOrderChatMessages,
+  loadOrderChatState,
   loadOrderDetails,
   loadWorkspaceData,
   login,
   me,
   setAuthToken,
+  sendOrderChatMessage,
 } from './api';
 
 const theme = createTheme({
@@ -558,14 +560,18 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     city: '',
   });
   const [statusForm, setStatusForm] = useState({ status: '', comment: '' });
-  const [commentForm, setCommentForm] = useState({
-    message: '',
-    visibleToClient: auth.role === 'CLIENT',
-  });
   const [actionLoading, setActionLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [apiErrorSeverity, setApiErrorSeverity] = useState('error');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatLastMessageAt, setChatLastMessageAt] = useState(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const chatLastMessageAtRef = useRef(null);
+  const chatScrollRef = useRef(null);
 
   const tabs = ROLE_TABS[auth.role] || ROLE_TABS.CLIENT;
   const allowedStatuses = useMemo(() => getAllowedStatuses(data.statuses, auth.role), [data.statuses, auth.role]);
@@ -590,8 +596,33 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     });
   }, [data.orders, orderSearch]);
 
+  const selectedOrderDetails = orderDetails[selectedOrderId] || null;
   const selectedOrder =
-    orderDetails[selectedOrderId] || data.orders.find((order) => order.id === selectedOrderId) || null;
+    selectedOrderDetails || data.orders.find((order) => order.id === selectedOrderId) || null;
+  const canUseChat =
+    Boolean(selectedOrderDetails) &&
+    (auth.role === 'ADMIN'
+      || (auth.role === 'MANAGER' && selectedOrderDetails.manager?.id === auth.id)
+      || (auth.role === 'CLIENT' && selectedOrderDetails.clientCompany?.id === auth.clientCompanyId));
+
+  const showMessage = useCallback((message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  }, [setSnackbar]);
+
+  const handleApiError = useCallback((error) => {
+    if (error?.status === 401) {
+      clearAuthToken();
+      onLogout();
+      setApiErrorSeverity('error');
+      setApiError('Сессия истекла. Войдите снова.');
+      showMessage('Сессия истекла. Войдите снова.', 'error');
+      return true;
+    }
+    setApiErrorSeverity('error');
+    setApiError(error.message);
+    showMessage(error.message, 'error');
+    return false;
+  }, [onLogout, showMessage]);
 
   useEffect(() => {
     const syncNavigationState = () => {
@@ -672,6 +703,71 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   }, [selectedOrder]);
 
   useEffect(() => {
+    chatLastMessageAtRef.current = chatLastMessageAt;
+  }, [chatLastMessageAt]);
+
+  useEffect(() => {
+    if (!selectedOrderId || !canUseChat) {
+      setChatMessages([]);
+      setChatDraft('');
+      setChatLastMessageAt(null);
+      setChatLoading(false);
+      setChatError('');
+      chatLastMessageAtRef.current = null;
+      return;
+    }
+
+    let active = true;
+    const syncChat = async () => {
+      setChatLoading(true);
+      setChatError('');
+      try {
+        await reloadChat(selectedOrderId);
+      } catch (error) {
+        if (active) {
+          handleApiError(error);
+          setChatError(error.message);
+        }
+      } finally {
+        if (active) {
+          setChatLoading(false);
+        }
+      }
+    };
+
+    syncChat();
+    const intervalId = setInterval(async () => {
+      if (!active) {
+        return;
+      }
+      try {
+        const state = await loadOrderChatState(selectedOrderId);
+        const nextLastMessageAt = state?.lastMessageAt || null;
+        if ((nextLastMessageAt || '') !== (chatLastMessageAtRef.current || '')) {
+          await reloadChat(selectedOrderId);
+        }
+      } catch (error) {
+        if (active && error?.status !== 401) {
+          setChatError(error.message);
+        } else if (error?.status === 401) {
+          handleApiError(error);
+        }
+      }
+    }, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
+  }, [selectedOrderId, canUseChat, handleApiError]);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, selectedOrderId]);
+
+  useEffect(() => {
     if (allowedStatuses.length && !allowedStatuses.some((item) => item.value === statusForm.status)) {
       setStatusForm((previous) => ({ ...previous, status: allowedStatuses[0].value }));
     }
@@ -697,23 +793,38 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     }
   }, [data.users, createOrderForm.managerId, createOrderForm.executorId]);
 
-  const showMessage = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
+  const reloadChat = async (orderId) => {
+    const [messages, state] = await Promise.all([
+      loadOrderChatMessages(orderId),
+      loadOrderChatState(orderId),
+    ]);
+    const nextLastMessageAt = state?.lastMessageAt || null;
+    setChatError('');
+    setChatMessages(messages);
+    setChatLastMessageAt(nextLastMessageAt);
+    chatLastMessageAtRef.current = nextLastMessageAt;
   };
 
-  const handleApiError = (error) => {
-    if (error?.status === 401) {
-      clearAuthToken();
-      onLogout();
-      setApiErrorSeverity('error');
-      setApiError('Сессия истекла. Войдите снова.');
-      showMessage('Сессия истекла. Войдите снова.', 'error');
-      return true;
+  const handleSendChatMessage = async (event) => {
+    event.preventDefault();
+    if (!selectedOrderId || !chatDraft.trim() || !canUseChat) {
+      return;
     }
-    setApiErrorSeverity('error');
-    setApiError(error.message);
-    showMessage(error.message, 'error');
-    return false;
+
+    setChatSending(true);
+    setChatError('');
+    try {
+      await sendOrderChatMessage(selectedOrderId, {
+        message: chatDraft.trim(),
+      });
+      setChatDraft('');
+      await reloadChat(selectedOrderId);
+    } catch (error) {
+      handleApiError(error);
+      setChatError(error.message);
+    } finally {
+      setChatSending(false);
+    }
   };
 
   const handleRefresh = async () => {
@@ -822,27 +933,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       setOrderDetails((previous) => ({ ...previous, [selectedOrder.id]: detail }));
       await handleRefresh();
       showMessage('Статус обновлён');
-    } catch (error) {
-      handleApiError(error);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleAddComment = async (event) => {
-    event.preventDefault();
-    if (!selectedOrder) return;
-    setActionLoading(true);
-    setApiError('');
-    try {
-      const detail = await addOrderComment(selectedOrder.id, {
-        message: commentForm.message,
-        visibleToClient: auth.role === 'CLIENT' ? true : commentForm.visibleToClient,
-      });
-      setOrderDetails((previous) => ({ ...previous, [selectedOrder.id]: detail }));
-      setCommentForm({ message: '', visibleToClient: auth.role === 'CLIENT' });
-      await handleRefresh();
-      showMessage('Комментарий добавлен');
     } catch (error) {
       handleApiError(error);
     } finally {
@@ -1191,7 +1281,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
   const renderOrderDetail = () => {
     if (!selectedOrder) {
-      return <EmptyState title="Выберите заказ" subtitle="Слева откройте карточку, чтобы увидеть детали, историю и комментарии." />;
+      return null;
     }
 
     const detail = orderDetails[selectedOrder.id] || selectedOrder;
@@ -1299,94 +1389,132 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           </SectionCard>
         ) : null}
 
-        <SectionCard title="Комментарий" subtitle="Добавьте сообщение к заказу, чтобы оно попало в историю">
-          <Box component="form" onSubmit={handleAddComment}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={8}>
-                <TextField
-                  label="Текст комментария"
-                  value={commentForm.message}
-                  onChange={(event) => setCommentForm((previous) => ({ ...previous, message: event.target.value }))}
-                  placeholder="Например: согласовано с клиентом"
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: 'flex-start', md: 'flex-end' }} flexWrap="wrap">
-                  {auth.role !== 'CLIENT' ? (
-                    <Button
-                      variant={commentForm.visibleToClient ? 'contained' : 'outlined'}
-                      onClick={() => setCommentForm((previous) => ({ ...previous, visibleToClient: !previous.visibleToClient }))}
-                    >
-                      {commentForm.visibleToClient ? 'Виден клиенту' : 'Только для сотрудников'}
-                    </Button>
-                  ) : (
-                    <Chip label="Комментарий увидит менеджер" color="primary" />
-                  )}
-                  <Button type="submit" variant="contained" disabled={actionLoading}>
-                    Добавить
-                  </Button>
-                </Stack>
-              </Grid>
-            </Grid>
-          </Box>
+        <SectionCard title="История статусов" subtitle="Последовательность изменений по заказу">
+          <Stack spacing={1.2}>
+            {detail.history?.length ? (
+              detail.history.map((item) => (
+                <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+                  <Stack spacing={0.4}>
+                    <Typography variant="subtitle2">{item.statusLabel}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.comment}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {item.changedByName} · {item.changedByRole} · {formatDateTime(item.changedAt)}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              ))
+            ) : (
+              <EmptyState title="История пока пуста" subtitle="После смены статуса здесь появятся записи." />
+            )}
+          </Stack>
         </SectionCard>
-
-        <Grid container spacing={2.2}>
-          <Grid item xs={12} md={6}>
-            <SectionCard title="История статусов" subtitle="Последовательность изменений по заказу">
-              <Stack spacing={1.2}>
-                {detail.history?.length ? (
-                  detail.history.map((item) => (
-                    <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
-                      <Stack spacing={0.4}>
-                        <Typography variant="subtitle2">{item.statusLabel}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {item.comment}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.changedByName} · {item.changedByRole} · {formatDateTime(item.changedAt)}
-                        </Typography>
-                      </Stack>
-                    </Paper>
-                  ))
-                ) : (
-                  <EmptyState title="История пока пуста" subtitle="После смены статуса здесь появятся записи." />
-                )}
-              </Stack>
-            </SectionCard>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <SectionCard title="Комментарии" subtitle="Внутренние и клиентские сообщения">
-              <Stack spacing={1.2}>
-                {detail.comments?.length ? (
-                  detail.comments.map((item) => (
-                    <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                        <Box>
-                          <Typography variant="subtitle2">{item.authorName}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {item.authorRole} · {formatDateTime(item.createdAt)}
-                          </Typography>
-                        </Box>
-                        <Chip
-                          label={item.visibleToClient ? 'Виден клиенту' : 'Внутренний'}
-                          color={item.visibleToClient ? 'success' : 'default'}
-                          size="small"
-                        />
-                      </Stack>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        {item.message}
-                      </Typography>
-                    </Paper>
-                  ))
-                ) : (
-                  <EmptyState title="Комментариев нет" subtitle="Добавьте первый комментарий, чтобы зафиксировать договоренности." />
-                )}
-              </Stack>
-            </SectionCard>
-          </Grid>
-        </Grid>
       </Stack>
+    );
+  };
+
+  const renderChatSection = () => {
+    if (!selectedOrderId || !canUseChat) {
+      return null;
+    }
+
+    return (
+      <SectionCard
+        title="Чат заказа"
+        subtitle="Сообщения в этом чате доступны администратору, менеджеру этого заказа и клиенту этого заказа. Автообновление каждые 5 секунд."
+      >
+        <Stack spacing={2}>
+          {chatError ? <Alert severity="error">{chatError}</Alert> : null}
+
+          <Box
+            ref={chatScrollRef}
+            sx={{
+              maxHeight: 420,
+              overflowY: 'auto',
+              pr: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.5,
+            }}
+          >
+            {chatLoading && !chatMessages.length ? (
+              <Box sx={{ py: 4, display: 'grid', placeItems: 'center' }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : null}
+
+            {!chatLoading && !chatMessages.length ? (
+              <EmptyState
+                title="Пока нет сообщений"
+                subtitle="Напишите первое сообщение, чтобы начать обсуждение заказа."
+              />
+            ) : null}
+
+            {chatMessages.map((message) => {
+              const isMine =
+                message.authorRole === auth.role
+                && message.authorName === auth.fullName;
+              return (
+                <Box
+                  key={message.id}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: isMine ? 'flex-end' : 'flex-start',
+                  }}
+                >
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 1.5,
+                      maxWidth: { xs: '100%', sm: '80%' },
+                      borderRadius: '16px',
+                      bgcolor: isMine ? 'rgba(26,115,232,0.08)' : '#fff',
+                    }}
+                  >
+                    <Stack spacing={0.75}>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                        <Typography variant="subtitle2">{message.authorName}</Typography>
+                        <Chip label={message.authorRole} size="small" variant="outlined" />
+                        <Typography variant="caption" color="text.secondary">
+                          {formatDateTime(message.createdAt)}
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {message.message}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                </Box>
+              );
+            })}
+          </Box>
+
+          <Divider />
+
+          <Box component="form" onSubmit={handleSendChatMessage}>
+            <Stack spacing={1.5}>
+              <TextField
+                label="Сообщение"
+                value={chatDraft}
+                onChange={(event) => setChatDraft(event.target.value)}
+                placeholder="Напишите сообщение по заказу"
+                multiline
+                minRows={3}
+                maxRows={6}
+              />
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} flexWrap="wrap">
+                <Typography variant="caption" color="text.secondary">
+                  Только текст. Сообщения обновляются автоматически без WebSocket.
+                </Typography>
+                <Button type="submit" variant="contained" disabled={chatSending || !chatDraft.trim()}>
+                  {chatSending ? 'Отправка...' : 'Отправить'}
+                </Button>
+              </Stack>
+            </Stack>
+          </Box>
+        </Stack>
+      </SectionCard>
     );
   };
 
@@ -1465,6 +1593,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           </Stack>
         </Paper>
         {renderOrderDetail()}
+        {renderChatSection()}
       </Stack>
     );
   };

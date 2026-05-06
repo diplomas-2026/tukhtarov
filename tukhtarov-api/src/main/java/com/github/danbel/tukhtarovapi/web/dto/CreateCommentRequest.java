@@ -1,11 +1,9 @@
 package com.github.danbel.tukhtarovapi.web.dto;
 
-import com.github.danbel.tukhtarovapi.domain.enumtype.UserRole;
+import jakarta.validation.constraints.NotBlank;
 
 public record CreateCommentRequest(
-        String authorName,
-        UserRole authorRole,
-        String message,
-        boolean visibleToClient
+        @NotBlank(message = "Текст сообщения не может быть пустым")
+        String message
 ) {
 }
