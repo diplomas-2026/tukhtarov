@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tukhtarov-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tukhtarov
+      POSTGRES_USER: tukhtarov
+      POSTGRES_PASSWORD: tukhtarov
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tukhtarov -d tukhtarov"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tukhtarov-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tukhtarov
+      SPRING_DATASOURCE_USERNAME: tukhtarov
+      SPRING_DATASOURCE_PASSWORD: tukhtarov
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SERVER_PORT: 8080
+
+volumes:
+  postgres_data:
