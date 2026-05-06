@@ -77,7 +77,7 @@ const theme = createTheme({
     },
   },
   shape: {
-    borderRadius: 20,
+    borderRadius: 16,
   },
   typography: {
     fontFamily: '"Roboto", "Arial", sans-serif',
@@ -99,7 +99,7 @@ const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 999,
+          borderRadius: 14,
           boxShadow: 'none',
           paddingInline: 18,
         },
@@ -126,7 +126,7 @@ const theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: 14,
           backgroundColor: '#fff',
         },
       },
@@ -140,7 +140,7 @@ const theme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 999,
+          borderRadius: 12,
         },
       },
     },
@@ -158,7 +158,7 @@ const theme = createTheme({
           alignItems: 'flex-start',
           justifyContent: 'flex-start',
           textTransform: 'none',
-          borderRadius: 14,
+          borderRadius: 12,
           paddingLeft: 14,
           paddingRight: 14,
           marginBottom: 6,
@@ -339,7 +339,7 @@ function EmptyState({ title, subtitle }) {
         px: 2,
         textAlign: 'center',
         border: '1px dashed rgba(95,99,104,0.3)',
-        borderRadius: 4,
+        borderRadius: '16px',
         backgroundColor: 'rgba(26,115,232,0.03)',
       }}
     >
@@ -349,6 +349,43 @@ function EmptyState({ title, subtitle }) {
       </Typography>
     </Box>
   );
+}
+
+const ROUTE_PATHS = {
+  dashboard: '/',
+  orders: '/orders',
+  tasks: '/tasks',
+  'create-order': '/create-order',
+  users: '/users',
+  clients: '/clients',
+  statuses: '/statuses',
+};
+
+function getNavigationState(pathname) {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  const orderMatch = normalizedPath.match(/^\/orders\/(\d+)$/);
+  if (orderMatch) {
+    return { tab: 'orders', orderId: Number(orderMatch[1]) };
+  }
+  if (normalizedPath === '/orders') {
+    return { tab: 'orders', orderId: null };
+  }
+  if (normalizedPath === '/tasks') {
+    return { tab: 'tasks', orderId: null };
+  }
+  if (normalizedPath === '/create-order') {
+    return { tab: 'create-order', orderId: null };
+  }
+  if (normalizedPath === '/users') {
+    return { tab: 'users', orderId: null };
+  }
+  if (normalizedPath === '/clients') {
+    return { tab: 'clients', orderId: null };
+  }
+  if (normalizedPath === '/statuses') {
+    return { tab: 'statuses', orderId: null };
+  }
+  return { tab: 'dashboard', orderId: null };
 }
 
 function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
@@ -476,6 +513,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const muiTheme = useTheme();
   const isDesktop = useMediaQuery(muiTheme.breakpoints.up('lg'));
   const drawerWidth = 320;
+  const initialNavigation = getNavigationState(window.location.pathname);
   const [data, setData] = useState({
     dashboard: null,
     orders: [],
@@ -487,8 +525,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   });
   const [orderDetails, setOrderDetails] = useState({});
   const [loading, setLoading] = useState(true);
-  const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [tab, setTab] = useState(ROLE_TABS[auth.role]?.[0]?.value || 'dashboard');
+  const [selectedOrderId, setSelectedOrderId] = useState(initialNavigation.orderId);
+  const [tab, setTab] = useState(initialNavigation.tab);
   const [orderSearch, setOrderSearch] = useState('');
   const [createOrderForm, setCreateOrderForm] = useState({
     orderNumber: 'IMP-2026-004',
@@ -532,11 +570,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const tabs = ROLE_TABS[auth.role] || ROLE_TABS.CLIENT;
   const allowedStatuses = useMemo(() => getAllowedStatuses(data.statuses, auth.role), [data.statuses, auth.role]);
 
-  useEffect(() => {
-    const defaultTab = ROLE_TABS[auth.role]?.[0]?.value || 'dashboard';
-    setTab(defaultTab);
-  }, [auth.role]);
-
   const filteredOrders = useMemo(() => {
     const query = orderSearch.trim().toLowerCase();
     if (!query) {
@@ -560,23 +593,29 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const selectedOrder =
     orderDetails[selectedOrderId] || data.orders.find((order) => order.id === selectedOrderId) || null;
 
+  useEffect(() => {
+    const syncNavigationState = () => {
+      const route = getNavigationState(window.location.pathname);
+      setTab(route.tab);
+      setSelectedOrderId(route.orderId);
+    };
+
+    syncNavigationState();
+    window.addEventListener('popstate', syncNavigationState);
+    return () => {
+      window.removeEventListener('popstate', syncNavigationState);
+    };
+  }, []);
+
   const refreshWorkspace = async (preferOrderId = selectedOrderId) => {
     setApiError('');
     const workspace = await loadWorkspaceData(auth.role);
     setData(workspace);
 
-    const fallbackOrderId = workspace.orders[0]?.id || null;
-    const nextSelectedOrderId =
-      preferOrderId && workspace.orders.some((order) => order.id === preferOrderId)
-        ? preferOrderId
-        : fallbackOrderId;
-
-    setSelectedOrderId(nextSelectedOrderId);
-
-    if (nextSelectedOrderId) {
+    if (preferOrderId) {
       try {
-        const detail = await loadOrderDetails(nextSelectedOrderId);
-        setOrderDetails((previous) => ({ ...previous, [nextSelectedOrderId]: detail }));
+        const detail = await loadOrderDetails(preferOrderId);
+        setOrderDetails((previous) => ({ ...previous, [preferOrderId]: detail }));
       } catch (error) {
         // Keep the workspace usable if one detail request fails.
       }
@@ -710,7 +749,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         dueDate: '',
       }));
       await refreshWorkspace(created.id);
-      setSelectedOrderId(created.id);
+      navigateToOrder(created.id);
       showMessage(`Заказ ${created.orderNumber} создан`);
     } catch (error) {
       handleApiError(error);
@@ -823,10 +862,28 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
   const pageMeta = TAB_TITLES[tab] || TAB_TITLES.dashboard;
   const handleTabSelect = (value) => {
+    const path = ROUTE_PATHS[value] || '/';
+    window.history.pushState({}, '', path);
+    setSelectedOrderId(null);
     setTab(value);
     if (!isDesktop) {
       setDrawerOpen(false);
     }
+  };
+
+  const navigateToOrder = (orderId) => {
+    window.history.pushState({}, '', `/orders/${orderId}`);
+    setTab('orders');
+    setSelectedOrderId(orderId);
+    if (!isDesktop) {
+      setDrawerOpen(false);
+    }
+  };
+
+  const navigateBackToOrders = () => {
+    window.history.pushState({}, '', '/orders');
+    setTab('orders');
+    setSelectedOrderId(null);
   };
 
   const drawerContent = (
@@ -859,7 +916,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                 onClick={() => handleTabSelect(item.value)}
                 sx={{
                   mb: 0.75,
-                  borderRadius: 3,
+                  borderRadius: '14px',
                   '&.Mui-selected': {
                     bgcolor: alpha(muiTheme.palette.primary.main, 0.08),
                   },
@@ -999,7 +1056,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                       <LinearProgress
                         variant="determinate"
                         value={Math.min(100, Number(count) * 20)}
-                        sx={{ mt: 1, height: 8, borderRadius: 999, bgcolor: 'rgba(26,115,232,0.08)' }}
+                        sx={{ mt: 1, height: 8, borderRadius: '12px', bgcolor: 'rgba(26,115,232,0.08)' }}
                       />
                     </Box>
                   ))
@@ -1022,7 +1079,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                       <LinearProgress
                         variant="determinate"
                         value={Math.min(100, Number(count) * 25)}
-                        sx={{ mt: 1, height: 8, borderRadius: 999, bgcolor: 'rgba(15,157,88,0.08)' }}
+                        sx={{ mt: 1, height: 8, borderRadius: '12px', bgcolor: 'rgba(15,157,88,0.08)' }}
                       />
                     </Box>
                   ))
@@ -1043,7 +1100,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                   variant="outlined"
                   sx={{
                     p: 2,
-                    borderRadius: 4,
+                    borderRadius: '16px',
                     cursor: 'pointer',
                     transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                     '&:hover': {
@@ -1051,7 +1108,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                       boxShadow: '0 10px 30px rgba(60,64,67,0.12)',
                     },
                   }}
-                  onClick={() => setTab(tabs[1]?.value || 'orders')}
+                  onClick={() => navigateToOrder(order.id)}
                 >
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
@@ -1092,11 +1149,11 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             <Paper
               key={order.id}
               variant="outlined"
-              onClick={() => setSelectedOrderId(order.id)}
+              onClick={() => navigateToOrder(order.id)}
               sx={{
                 p: 2,
                 cursor: 'pointer',
-                borderRadius: 3,
+                borderRadius: '14px',
                 borderColor: active ? 'primary.main' : 'divider',
                 backgroundColor: active ? alpha(theme.palette.primary.main, 0.05) : '#fff',
                 transition: 'all 0.15s ease',
@@ -1280,7 +1337,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
               <Stack spacing={1.2}>
                 {detail.history?.length ? (
                   detail.history.map((item) => (
-                    <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                    <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                       <Stack spacing={0.4}>
                         <Typography variant="subtitle2">{item.statusLabel}</Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -1303,7 +1360,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
               <Stack spacing={1.2}>
                 {detail.comments?.length ? (
                   detail.comments.map((item) => (
-                    <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                    <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                         <Box>
                           <Typography variant="subtitle2">{item.authorName}</Typography>
@@ -1364,6 +1421,54 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     </Grid>
   );
 
+  const renderOrderPage = () => {
+    if (!selectedOrderId) {
+      return null;
+    }
+
+    if (!selectedOrder) {
+      return (
+        <SectionCard
+          title="Заказ не найден"
+          subtitle="Возможно, карточка была удалена или доступ к ней ограничен."
+          action={
+            <Button variant="outlined" onClick={navigateBackToOrders}>
+              Назад к заказам
+            </Button>
+          }
+        >
+          <EmptyState title="Карточка недоступна" subtitle="Вернитесь к списку заказов и выберите другую карточку." />
+        </SectionCard>
+      );
+    }
+
+    return (
+      <Stack spacing={2.2}>
+        <Paper sx={{ p: 2.5, bgcolor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(18px)' }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            justifyContent="space-between"
+          >
+            <Box>
+              <Typography variant="h5">
+                {selectedOrder.orderNumber} · {selectedOrder.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Отдельная страница заказа с полным контекстом, историей и комментариями.
+              </Typography>
+            </Box>
+            <Button variant="outlined" onClick={navigateBackToOrders}>
+              Назад к списку
+            </Button>
+          </Stack>
+        </Paper>
+        {renderOrderDetail()}
+      </Stack>
+    );
+  };
+
   const renderUsers = () => (
     <Grid container spacing={2.2}>
       <Grid item xs={12} md={5}>
@@ -1402,7 +1507,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           <Stack spacing={1.2}>
             {data.users.length ? (
               data.users.map((user) => (
-                <Paper key={user.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper key={user.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                     <Box>
                       <Typography variant="subtitle1">{user.fullName}</Typography>
@@ -1455,7 +1560,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           <Stack spacing={1.2}>
             {data.clients.length ? (
               data.clients.map((client) => (
-                <Paper key={client.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                <Paper key={client.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                     <Box>
                       <Typography variant="subtitle1">{client.name}</Typography>
@@ -1485,7 +1590,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         <SectionCard title="Статусы заказа" subtitle="Производственный цикл и доступные этапы">
           <Stack spacing={1.2}>
             {data.statuses.map((status) => (
-              <Paper key={status.value} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+              <Paper key={status.value} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                   <Typography variant="body2" fontWeight={600}>
                     {status.label}
@@ -1501,7 +1606,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         <SectionCard title="Роли и действия" subtitle="Что доступно каждой роли в системе">
           <Stack spacing={1.2}>
             {tabs.map((item) => (
-              <Paper key={item.value} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+              <Paper key={item.value} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                 <Typography variant="subtitle2">{item.label}</Typography>
               </Paper>
             ))}
@@ -1583,12 +1688,13 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
               </Stack>
             </Paper>
 
-            {loading ? <LinearProgress sx={{ borderRadius: 999 }} /> : null}
+            {loading ? <LinearProgress sx={{ borderRadius: '12px' }} /> : null}
             {apiError ? <Alert severity={apiErrorSeverity}>{apiError}</Alert> : null}
 
             {tab === 'dashboard' ? renderDashboard() : null}
-            {tab === 'orders' || tab === 'tasks' ? renderOrdersWorkspace(auth.role === 'CLIENT' ? data.orders : filteredOrders) : null}
-            {tab === 'create-order' ? (
+            {selectedOrderId ? renderOrderPage() : null}
+            {!selectedOrderId && (tab === 'orders' || tab === 'tasks') ? renderOrdersWorkspace(auth.role === 'CLIENT' ? data.orders : filteredOrders) : null}
+            {!selectedOrderId && tab === 'create-order' ? (
               <SectionCard title="Новый заказ" subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту">
                 <Box component="form" onSubmit={handleCreateOrder}>
                   <Grid container spacing={2}>
@@ -1678,9 +1784,9 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                 </Box>
               </SectionCard>
             ) : null}
-            {tab === 'users' ? renderUsers() : null}
-            {tab === 'clients' ? renderClients() : null}
-            {tab === 'statuses' ? renderStatuses() : null}
+            {!selectedOrderId && tab === 'users' ? renderUsers() : null}
+            {!selectedOrderId && tab === 'clients' ? renderClients() : null}
+            {!selectedOrderId && tab === 'statuses' ? renderStatuses() : null}
           </Stack>
         </Container>
       </Box>
