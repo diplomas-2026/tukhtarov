@@ -31,6 +31,7 @@ public class AppUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
     private String login;
 
     private String fullName;
@@ -39,6 +40,9 @@ public class AppUser {
     private String email;
 
     private String phone;
+
+    @Column(nullable = false)
+    private String passwordHash;
 
     @Enumerated(EnumType.STRING)
     private UserRole role;

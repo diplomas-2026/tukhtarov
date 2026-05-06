@@ -1,16 +1,17 @@
 package com.github.danbel.tukhtarovapi.service;
 
-import com.github.danbel.tukhtarovapi.domain.entity.AppUser;
 import com.github.danbel.tukhtarovapi.domain.entity.ClientCompany;
 import com.github.danbel.tukhtarovapi.domain.entity.OrderComment;
 import com.github.danbel.tukhtarovapi.domain.entity.OrderStatusHistory;
 import com.github.danbel.tukhtarovapi.domain.entity.ProductionOrder;
 import com.github.danbel.tukhtarovapi.domain.enumtype.OrderStatus;
+import com.github.danbel.tukhtarovapi.domain.enumtype.UserRole;
 import com.github.danbel.tukhtarovapi.repository.AppUserRepository;
 import com.github.danbel.tukhtarovapi.repository.ClientCompanyRepository;
 import com.github.danbel.tukhtarovapi.repository.OrderCommentRepository;
 import com.github.danbel.tukhtarovapi.repository.OrderStatusHistoryRepository;
 import com.github.danbel.tukhtarovapi.repository.ProductionOrderRepository;
+import com.github.danbel.tukhtarovapi.security.AuthenticatedUser;
 import com.github.danbel.tukhtarovapi.web.dto.ChangeStatusRequest;
 import com.github.danbel.tukhtarovapi.web.dto.CommentDto;
 import com.github.danbel.tukhtarovapi.web.dto.CreateCommentRequest;
@@ -27,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,52 +44,31 @@ public class ProductionOrderService {
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
 
     @Transactional(readOnly = true)
-    public List<OrderSummaryDto> findAllSummaries() {
-        return ApiMapper.sortSummaries(productionOrderRepository.findAll());
+    public List<OrderSummaryDto> findVisibleOrders(AuthenticatedUser currentUser) {
+        return visibleOrders(currentUser)
+                .stream()
+                .map(ApiMapper::toSummaryDto)
+                .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<OrderSummaryDto> findVisibleOrders(String role, Long userId) {
-        if (role == null || userId == null) {
-            return findAllSummaries();
-        }
-
-        if ("CLIENT".equalsIgnoreCase(role)) {
-            return appUserRepository.findById(userId)
-                    .map(user -> user.getClientCompany() == null
-                            ? List.<ProductionOrder>of()
-                            : productionOrderRepository.findByClientCompanyIdOrderByCreatedAtDesc(user.getClientCompany().getId()))
-                    .orElse(List.of())
-                    .stream()
-                    .map(ApiMapper::toSummaryDto)
-                    .toList();
-        }
-
-        if ("EXECUTOR".equalsIgnoreCase(role)) {
-            return productionOrderRepository.findByExecutorIdOrderByDueDateAsc(userId)
-                    .stream()
-                    .map(ApiMapper::toSummaryDto)
-                    .toList();
-        }
-
-        return findAllSummaries();
-    }
-
-    @Transactional(readOnly = true)
-    public OrderDetailsDto getOrder(Long id) {
+    public OrderDetailsDto getOrder(Long id, AuthenticatedUser currentUser) {
         ProductionOrder order = productionOrderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Заказ не найден"));
+        ensureAccess(order, currentUser);
         List<OrderComment> comments = orderCommentRepository.findByOrderIdOrderByCreatedAtAsc(id);
         List<OrderStatusHistory> history = orderStatusHistoryRepository.findByOrderIdOrderByChangedAtAsc(id);
         return ApiMapper.toDetailsDto(order, comments, history);
     }
 
-    public OrderDetailsDto createOrder(CreateOrderRequest request) {
+    public OrderDetailsDto createOrder(CreateOrderRequest request, AuthenticatedUser currentUser) {
+        ensureCanManageOrders(currentUser);
         ClientCompany clientCompany = clientCompanyRepository.findById(request.clientCompanyId())
                 .orElseThrow(() -> new IllegalArgumentException("Клиент не найден"));
-        AppUser manager = appUserRepository.findById(request.managerId())
+
+        var manager = appUserRepository.findById(request.managerId())
                 .orElseThrow(() -> new IllegalArgumentException("Менеджер не найден"));
-        AppUser executor = appUserRepository.findById(request.executorId())
+        var executor = appUserRepository.findById(request.executorId())
                 .orElseThrow(() -> new IllegalArgumentException("Исполнитель не найден"));
 
         ProductionOrder order = productionOrderRepository.save(ProductionOrder.builder()
@@ -104,11 +85,12 @@ public class ProductionOrderService {
                 .dueDate(request.dueDate())
                 .build());
 
-        appendHistory(order, OrderStatus.NEW, "Создан новый заказ", manager.getFullName(), manager.getRole().name());
-        return getOrder(order.getId());
+        appendHistory(order, OrderStatus.NEW, "Создан новый заказ", currentUser);
+        return getOrder(order.getId(), currentUser);
     }
 
-    public OrderDetailsDto updateOrder(Long id, UpdateOrderRequest request) {
+    public OrderDetailsDto updateOrder(Long id, UpdateOrderRequest request, AuthenticatedUser currentUser) {
+        ensureCanManageOrders(currentUser);
         ProductionOrder order = productionOrderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Заказ не найден"));
 
@@ -146,62 +128,50 @@ public class ProductionOrderService {
                     .orElseThrow(() -> new IllegalArgumentException("Исполнитель не найден")));
         }
         productionOrderRepository.save(order);
-        return getOrder(id);
+        return getOrder(id, currentUser);
     }
 
-    public OrderDetailsDto changeStatus(Long id, ChangeStatusRequest request) {
+    public OrderDetailsDto changeStatus(Long id, ChangeStatusRequest request, AuthenticatedUser currentUser) {
         ProductionOrder order = productionOrderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Заказ не найден"));
+        ensureAccess(order, currentUser);
         order.setStatus(request.status());
         if (request.status() == OrderStatus.CLOSED || request.status() == OrderStatus.SHIPPED) {
             order.setCompletedAt(LocalDate.now());
         }
         productionOrderRepository.save(order);
-        appendHistory(order, request.status(), request.comment(), request.changedByName(), request.changedByRole().name());
-        return getOrder(id);
+        appendHistory(order, request.status(), request.comment(), currentUser);
+        return getOrder(id, currentUser);
     }
 
-    public OrderDetailsDto addComment(Long id, CreateCommentRequest request) {
+    public OrderDetailsDto addComment(Long id, CreateCommentRequest request, AuthenticatedUser currentUser) {
         ProductionOrder order = productionOrderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Заказ не найден"));
+        ensureAccess(order, currentUser);
         orderCommentRepository.save(OrderComment.builder()
                 .order(order)
-                .authorName(request.authorName())
-                .authorRole(request.authorRole())
+                .authorName(currentUser.fullName())
+                .authorRole(currentUser.role())
                 .message(request.message())
-                .visibleToClient(request.visibleToClient())
+                .visibleToClient(currentUser.role() == UserRole.CLIENT || request.visibleToClient())
                 .createdAt(LocalDateTime.now())
                 .build());
-        return getOrder(id);
+        return getOrder(id, currentUser);
     }
 
     @Transactional(readOnly = true)
-    public List<CommentDto> getComments(Long id) {
-        return orderCommentRepository.findByOrderIdOrderByCreatedAtAsc(id)
-                .stream()
-                .map(ApiMapper::toCommentDto)
-                .toList();
+    public List<CommentDto> getComments(Long id, AuthenticatedUser currentUser) {
+        return getOrder(id, currentUser).comments();
     }
 
     @Transactional(readOnly = true)
-    public List<StatusHistoryDto> getHistory(Long id) {
-        return orderStatusHistoryRepository.findByOrderIdOrderByChangedAtAsc(id)
-                .stream()
-                .map(ApiMapper::toHistoryDto)
-                .toList();
+    public List<StatusHistoryDto> getHistory(Long id, AuthenticatedUser currentUser) {
+        return getOrder(id, currentUser).history();
     }
 
     @Transactional(readOnly = true)
-    public DashboardDto getDashboard(String role, Long userId) {
-        List<ProductionOrder> orders = productionOrderRepository.findAll();
-        if ("CLIENT".equalsIgnoreCase(role) && userId != null) {
-            orders = appUserRepository.findById(userId)
-                    .map(user -> user.getClientCompany() == null ? List.<ProductionOrder>of()
-                            : productionOrderRepository.findByClientCompanyIdOrderByCreatedAtDesc(user.getClientCompany().getId()))
-                    .orElse(List.of());
-        } else if ("EXECUTOR".equalsIgnoreCase(role) && userId != null) {
-            orders = productionOrderRepository.findByExecutorIdOrderByDueDateAsc(userId);
-        }
+    public DashboardDto getDashboard(AuthenticatedUser currentUser) {
+        List<ProductionOrder> orders = visibleOrders(currentUser);
 
         long total = orders.size();
         long active = orders.stream().filter(order -> !List.of(OrderStatus.CLOSED, OrderStatus.CANCELLED, OrderStatus.SHIPPED).contains(order.getStatus())).count();
@@ -222,13 +192,50 @@ public class ProductionOrderService {
         return new DashboardDto(total, active, overdue, completed, statusCounts, priorityCounts, recentOrders);
     }
 
-    private void appendHistory(ProductionOrder order, OrderStatus status, String comment, String changedByName, String changedByRole) {
+    private List<ProductionOrder> visibleOrders(AuthenticatedUser currentUser) {
+        if (currentUser.role() == UserRole.ADMIN || currentUser.role() == UserRole.MANAGER) {
+            return productionOrderRepository.findAll();
+        }
+        if (currentUser.role() == UserRole.EXECUTOR) {
+            return productionOrderRepository.findByExecutorIdOrderByDueDateAsc(currentUser.id());
+        }
+        if (currentUser.role() == UserRole.CLIENT && currentUser.clientCompanyId() != null) {
+            return productionOrderRepository.findByClientCompanyIdOrderByCreatedAtDesc(currentUser.clientCompanyId());
+        }
+        return List.of();
+    }
+
+    private void ensureCanManageOrders(AuthenticatedUser currentUser) {
+        if (currentUser.role() != UserRole.ADMIN && currentUser.role() != UserRole.MANAGER) {
+            throw new AccessDeniedException("Недостаточно прав для изменения заказа");
+        }
+    }
+
+    private void ensureAccess(ProductionOrder order, AuthenticatedUser currentUser) {
+        if (currentUser.role() == UserRole.ADMIN || currentUser.role() == UserRole.MANAGER) {
+            return;
+        }
+        if (currentUser.role() == UserRole.EXECUTOR
+                && order.getExecutor() != null
+                && order.getExecutor().getId().equals(currentUser.id())) {
+            return;
+        }
+        if (currentUser.role() == UserRole.CLIENT
+                && currentUser.clientCompanyId() != null
+                && order.getClientCompany() != null
+                && order.getClientCompany().getId().equals(currentUser.clientCompanyId())) {
+            return;
+        }
+        throw new AccessDeniedException("Доступ к заказу запрещён");
+    }
+
+    private void appendHistory(ProductionOrder order, OrderStatus status, String comment, AuthenticatedUser currentUser) {
         orderStatusHistoryRepository.save(OrderStatusHistory.builder()
                 .order(order)
                 .status(status)
                 .comment(comment == null ? "" : comment)
-                .changedByName(changedByName == null ? "Система" : changedByName)
-                .changedByRole(com.github.danbel.tukhtarovapi.domain.enumtype.UserRole.valueOf(changedByRole))
+                .changedByName(currentUser.fullName())
+                .changedByRole(currentUser.role())
                 .changedAt(LocalDateTime.now())
                 .build());
     }

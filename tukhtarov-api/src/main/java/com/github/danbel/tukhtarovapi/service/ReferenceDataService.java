@@ -8,6 +8,7 @@ import com.github.danbel.tukhtarovapi.domain.entity.ClientCompany;
 import com.github.danbel.tukhtarovapi.repository.AppUserRepository;
 import com.github.danbel.tukhtarovapi.repository.ClientCompanyRepository;
 import com.github.danbel.tukhtarovapi.repository.ProductionOrderRepository;
+import com.github.danbel.tukhtarovapi.security.AuthenticatedUser;
 import com.github.danbel.tukhtarovapi.web.dto.CreateClientRequest;
 import com.github.danbel.tukhtarovapi.web.dto.CreateUserRequest;
 import com.github.danbel.tukhtarovapi.web.dto.ClientDto;
@@ -22,6 +23,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +32,7 @@ public class ReferenceDataService {
     private final AppUserRepository appUserRepository;
     private final ClientCompanyRepository clientCompanyRepository;
     private final ProductionOrderRepository productionOrderRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public List<RoleDto> roles() {
@@ -48,6 +51,12 @@ public class ReferenceDataService {
 
     @Transactional(readOnly = true)
     public List<UserDto> users() {
+        return users(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserDto> users(AuthenticatedUser currentUser) {
+        ensureAdmin(currentUser);
         return appUserRepository.findAll()
                 .stream()
                 .map(ApiMapper::toUserDto)
@@ -56,6 +65,12 @@ public class ReferenceDataService {
 
     @Transactional(readOnly = true)
     public List<ClientDto> clients() {
+        return clients(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClientDto> clients(AuthenticatedUser currentUser) {
+        ensureAdmin(currentUser);
         return clientCompanyRepository.findAll()
                 .stream()
                 .map(client -> ApiMapper.toClientDto(client, productionOrderRepository.findByClientCompanyIdOrderByCreatedAtDesc(client.getId()).size()))
@@ -64,6 +79,12 @@ public class ReferenceDataService {
 
     @Transactional
     public UserDto createUser(CreateUserRequest request) {
+        return createUser(request, null);
+    }
+
+    @Transactional
+    public UserDto createUser(CreateUserRequest request, AuthenticatedUser currentUser) {
+        ensureAdmin(currentUser);
         ClientCompany clientCompany = request.clientCompanyId() == null
                 ? null
                 : clientCompanyRepository.findById(request.clientCompanyId())
@@ -74,6 +95,7 @@ public class ReferenceDataService {
                 .fullName(request.fullName())
                 .email(request.email())
                 .phone(request.phone())
+                .passwordHash(passwordEncoder.encode(request.password()))
                 .role(request.role())
                 .active(request.active())
                 .clientCompany(clientCompany)
@@ -83,6 +105,12 @@ public class ReferenceDataService {
 
     @Transactional
     public UserDto updateUser(Long id, UpdateUserRequest request) {
+        return updateUser(id, request, null);
+    }
+
+    @Transactional
+    public UserDto updateUser(Long id, UpdateUserRequest request, AuthenticatedUser currentUser) {
+        ensureAdmin(currentUser);
         AppUser user = appUserRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
         if (request.login() != null) {
@@ -96,6 +124,9 @@ public class ReferenceDataService {
         }
         if (request.phone() != null) {
             user.setPhone(request.phone());
+        }
+        if (request.password() != null && !request.password().isBlank()) {
+            user.setPasswordHash(passwordEncoder.encode(request.password()));
         }
         if (request.role() != null) {
             user.setRole(request.role());
@@ -112,6 +143,12 @@ public class ReferenceDataService {
 
     @Transactional
     public ClientDto createClient(CreateClientRequest request) {
+        return createClient(request, null);
+    }
+
+    @Transactional
+    public ClientDto createClient(CreateClientRequest request, AuthenticatedUser currentUser) {
+        ensureAdmin(currentUser);
         ClientCompany company = clientCompanyRepository.save(ClientCompany.builder()
                 .name(request.name())
                 .inn(request.inn())
@@ -125,6 +162,12 @@ public class ReferenceDataService {
 
     @Transactional
     public ClientDto updateClient(Long id, UpdateClientRequest request) {
+        return updateClient(id, request, null);
+    }
+
+    @Transactional
+    public ClientDto updateClient(Long id, UpdateClientRequest request, AuthenticatedUser currentUser) {
+        ensureAdmin(currentUser);
         ClientCompany company = clientCompanyRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Клиент не найден"));
         if (request.name() != null) {
@@ -146,5 +189,11 @@ public class ReferenceDataService {
             company.setCity(request.city());
         }
         return ApiMapper.toClientDto(clientCompanyRepository.save(company), productionOrderRepository.findByClientCompanyIdOrderByCreatedAtDesc(id).size());
+    }
+
+    private void ensureAdmin(AuthenticatedUser currentUser) {
+        if (currentUser != null && currentUser.role() != UserRole.ADMIN) {
+            throw new org.springframework.security.access.AccessDeniedException("Только администратор может выполнять это действие");
+        }
     }
 }

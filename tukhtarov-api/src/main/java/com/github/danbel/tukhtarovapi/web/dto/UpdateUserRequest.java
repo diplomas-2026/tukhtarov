@@ -7,6 +7,7 @@ public record UpdateUserRequest(
         String fullName,
         String email,
         String phone,
+        String password,
         UserRole role,
         Boolean active,
         Long clientCompanyId

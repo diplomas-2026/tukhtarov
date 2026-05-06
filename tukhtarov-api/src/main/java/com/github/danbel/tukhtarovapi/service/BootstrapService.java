@@ -15,11 +15,11 @@ import com.github.danbel.tukhtarovapi.repository.OrderStatusHistoryRepository;
 import com.github.danbel.tukhtarovapi.repository.ProductionOrderRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Component
 @RequiredArgsConstructor
@@ -30,14 +30,25 @@ public class BootstrapService implements CommandLineRunner {
     private final ProductionOrderRepository productionOrderRepository;
     private final OrderCommentRepository orderCommentRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
     public void run(String... args) {
-        if (clientCompanyRepository.count() > 0 || appUserRepository.count() > 0 || productionOrderRepository.count() > 0) {
+        if (appUserRepository.count() > 0) {
             return;
         }
 
+        orderCommentRepository.deleteAllInBatch();
+        orderStatusHistoryRepository.deleteAllInBatch();
+        productionOrderRepository.deleteAllInBatch();
+        appUserRepository.deleteAllInBatch();
+        clientCompanyRepository.deleteAllInBatch();
+
+        seedDemoData();
+    }
+
+    private void seedDemoData() {
         ClientCompany metallInvest = clientCompanyRepository.save(ClientCompany.builder()
                 .name("ООО \"МеталлИнвест\"")
                 .inn("6601001001")
@@ -61,6 +72,7 @@ public class BootstrapService implements CommandLineRunner {
                 .fullName("Администратор Системы")
                 .email("admin@impuls.ru")
                 .phone("+7 (900) 000-00-01")
+                .passwordHash(passwordEncoder.encode("admin123"))
                 .role(UserRole.ADMIN)
                 .active(true)
                 .build());
@@ -70,6 +82,7 @@ public class BootstrapService implements CommandLineRunner {
                 .fullName("Смирнов Алексей")
                 .email("manager@impuls.ru")
                 .phone("+7 (900) 000-00-02")
+                .passwordHash(passwordEncoder.encode("manager123"))
                 .role(UserRole.MANAGER)
                 .active(true)
                 .build());
@@ -79,6 +92,7 @@ public class BootstrapService implements CommandLineRunner {
                 .fullName("Орлов Дмитрий")
                 .email("executor@impuls.ru")
                 .phone("+7 (900) 000-00-03")
+                .passwordHash(passwordEncoder.encode("executor123"))
                 .role(UserRole.EXECUTOR)
                 .active(true)
                 .build());
@@ -88,6 +102,7 @@ public class BootstrapService implements CommandLineRunner {
                 .fullName("Клиентский Кабинет")
                 .email("client@metallinvest.ru")
                 .phone("+7 (900) 000-00-04")
+                .passwordHash(passwordEncoder.encode("client123"))
                 .role(UserRole.CLIENT)
                 .active(true)
                 .clientCompany(metallInvest)
@@ -136,6 +151,49 @@ public class BootstrapService implements CommandLineRunner {
                 .executor(executor)
                 .build());
 
+        ProductionOrder order4 = productionOrderRepository.save(ProductionOrder.builder()
+                .orderNumber("IMP-2026-004")
+                .title("Кронштейн для технологической линии")
+                .description("Серия кронштейнов с покраской и частичной сборкой.")
+                .status(OrderStatus.CUTTING)
+                .priority(OrderPriority.HIGH)
+                .createdAt(LocalDate.now().minusDays(4))
+                .plannedDate(LocalDate.now().plusDays(1))
+                .dueDate(LocalDate.now().plusDays(5))
+                .clientCompany(uralEnergy)
+                .manager(manager)
+                .executor(executor)
+                .build());
+
+        ProductionOrder order5 = productionOrderRepository.save(ProductionOrder.builder()
+                .orderNumber("IMP-2026-005")
+                .title("Корпус узла дозирования")
+                .description("Сложный корпус с мехобработкой, сваркой и ОТК.")
+                .status(OrderStatus.ON_HOLD)
+                .priority(OrderPriority.NORMAL)
+                .createdAt(LocalDate.now().minusDays(2))
+                .plannedDate(LocalDate.now().plusDays(3))
+                .dueDate(LocalDate.now().plusDays(6))
+                .clientCompany(metallInvest)
+                .manager(manager)
+                .executor(executor)
+                .build());
+
+        ProductionOrder order6 = productionOrderRepository.save(ProductionOrder.builder()
+                .orderNumber("IMP-2026-006")
+                .title("Опорная металлоконструкция")
+                .description("Изготовление опорной конструкции, партия завершена и закрыта.")
+                .status(OrderStatus.CLOSED)
+                .priority(OrderPriority.LOW)
+                .createdAt(LocalDate.now().minusDays(20))
+                .plannedDate(LocalDate.now().minusDays(12))
+                .dueDate(LocalDate.now().minusDays(10))
+                .completedAt(LocalDate.now().minusDays(8))
+                .clientCompany(uralEnergy)
+                .manager(manager)
+                .executor(executor)
+                .build());
+
         createHistory(order1, "Создан заказ и передан в проверку ТЗ", OrderStatus.NEW, manager);
         createHistory(order1, "Получены замечания по чертежам", OrderStatus.CLARIFICATION, manager);
         createHistory(order1, "Заказ передан на проверку качества", OrderStatus.IN_REVIEW, executor);
@@ -145,10 +203,17 @@ public class BootstrapService implements CommandLineRunner {
 
         createHistory(order3, "Изготовление завершено", OrderStatus.READY_FOR_SHIPMENT, executor);
 
+        createHistory(order4, "Партия переведена на резку", OrderStatus.CUTTING, executor);
+        createHistory(order5, "Заказ приостановлен из-за ожидания оплат/материалов", OrderStatus.ON_HOLD, manager);
+        createHistory(order6, "Заказ закрыт после отгрузки", OrderStatus.CLOSED, manager);
+
         createComment(order1, "Менеджер", UserRole.MANAGER, "ТЗ согласовываем с клиентом. Нужна корректировка размеров.", true);
         createComment(order1, "ОТК", UserRole.EXECUTOR, "Замечания сняты, можно повторно передавать на проверку.", true);
         createComment(order2, "Мастер участка", UserRole.EXECUTOR, "Часть материалов еще в пути. Ждем поставку.", false);
         createComment(order3, "Менеджер", UserRole.MANAGER, "Заказ готов к отгрузке, согласуем транспорт.", true);
+        createComment(order4, "Мастер участка", UserRole.EXECUTOR, "Резка выполнена, передаем дальше по маршруту.", true);
+        createComment(order5, "Менеджер", UserRole.MANAGER, "Заказ поставлен на паузу до получения подтверждения.", true);
+        createComment(order6, "Менеджер", UserRole.MANAGER, "Заказ закрыт и передан в архив.", true);
 
     }
 

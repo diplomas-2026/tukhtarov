@@ -7,6 +7,7 @@ public record CreateUserRequest(
         String fullName,
         String email,
         String phone,
+        String password,
         UserRole role,
         boolean active,
         Long clientCompanyId
