@@ -25,7 +25,10 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.endsWith("/auth/login") || path.endsWith("/error") || "OPTIONS".equalsIgnoreCase(request.getMethod());
+        return path.endsWith("/auth/login")
+                || path.endsWith("/auth/register")
+                || path.endsWith("/error")
+                || "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
     @Override

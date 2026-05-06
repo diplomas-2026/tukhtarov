@@ -62,6 +62,13 @@ export function login(loginValue, password) {
   });
 }
 
+export function register(payload) {
+  return request('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function me() {
   return request('/auth/me');
 }
@@ -116,6 +123,33 @@ export function loadOrderChatMessages(orderId) {
 
 export function sendOrderChatMessage(orderId, payload) {
   return request(`/orders/${orderId}/chat/messages`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+function buildQueryString(params = {}) {
+  const entries = Object.entries(params).filter(([, value]) => value !== null && value !== undefined && value !== '');
+  if (!entries.length) {
+    return '';
+  }
+  const searchParams = new URLSearchParams();
+  entries.forEach(([key, value]) => {
+    searchParams.set(key, value);
+  });
+  return `?${searchParams.toString()}`;
+}
+
+export function loadSupportChatState(clientCompanyId = '') {
+  return request(`/support-chat/state${buildQueryString({ clientCompanyId })}`);
+}
+
+export function loadSupportChatMessages(clientCompanyId = '') {
+  return request(`/support-chat/messages${buildQueryString({ clientCompanyId })}`);
+}
+
+export function sendSupportChatMessage(clientCompanyId, payload) {
+  return request(`/support-chat/messages${buildQueryString({ clientCompanyId })}`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });

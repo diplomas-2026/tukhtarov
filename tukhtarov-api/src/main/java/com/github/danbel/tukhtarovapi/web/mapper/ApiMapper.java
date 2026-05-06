@@ -5,6 +5,7 @@ import com.github.danbel.tukhtarovapi.domain.entity.ClientCompany;
 import com.github.danbel.tukhtarovapi.domain.entity.OrderComment;
 import com.github.danbel.tukhtarovapi.domain.entity.OrderStatusHistory;
 import com.github.danbel.tukhtarovapi.domain.entity.ProductionOrder;
+import com.github.danbel.tukhtarovapi.domain.entity.SupportChatMessage;
 import com.github.danbel.tukhtarovapi.domain.enumtype.OrderPriority;
 import com.github.danbel.tukhtarovapi.domain.enumtype.OrderStatus;
 import com.github.danbel.tukhtarovapi.domain.enumtype.UserRole;
@@ -112,6 +113,17 @@ public final class ApiMapper {
                 comment.getMessage(),
                 comment.isVisibleToClient(),
                 comment.getCreatedAt()
+        );
+    }
+
+    public static CommentDto toSupportChatCommentDto(SupportChatMessage message) {
+        return new CommentDto(
+                message.getId(),
+                message.getAuthorName(),
+                message.getAuthorRole().name(),
+                message.getMessage(),
+                true,
+                message.getCreatedAt()
         );
     }
 

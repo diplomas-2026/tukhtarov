@@ -20,4 +20,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
 
     @EntityGraph(attributePaths = "clientCompany")
     Optional<AppUser> findById(Long id);
+
+    boolean existsByLoginIgnoreCase(String login);
+
+    boolean existsByEmailIgnoreCase(String email);
 }

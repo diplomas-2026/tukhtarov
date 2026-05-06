@@ -43,7 +43,6 @@ import GroupRoundedIcon from '@mui/icons-material/GroupRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded';
-import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import {
@@ -58,8 +57,12 @@ import {
   loadWorkspaceData,
   login,
   me,
+  register,
   setAuthToken,
   sendOrderChatMessage,
+  loadSupportChatMessages,
+  loadSupportChatState,
+  sendSupportChatMessage,
 } from './api';
 
 const theme = createTheme({
@@ -178,12 +181,14 @@ const ROLE_TABS = {
     { value: 'users', label: 'Пользователи', icon: <GroupRoundedIcon fontSize="small" /> },
     { value: 'clients', label: 'Клиенты', icon: <BusinessRoundedIcon fontSize="small" /> },
     { value: 'statuses', label: 'Статусы', icon: <PendingActionsRoundedIcon fontSize="small" /> },
+    { value: 'support-chat', label: 'Чаты клиентов', icon: <GroupRoundedIcon fontSize="small" /> },
   ],
   MANAGER: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'orders', label: 'Заказы', icon: <AssignmentRoundedIcon fontSize="small" /> },
     { value: 'create-order', label: 'Новый заказ', icon: <AddRoundedIcon fontSize="small" /> },
     { value: 'clients', label: 'Клиенты', icon: <BusinessRoundedIcon fontSize="small" /> },
+    { value: 'support-chat', label: 'Чаты клиентов', icon: <GroupRoundedIcon fontSize="small" /> },
   ],
   EXECUTOR: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
@@ -193,6 +198,7 @@ const ROLE_TABS = {
   CLIENT: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'orders', label: 'Мои заказы', icon: <AssignmentRoundedIcon fontSize="small" /> },
+    { value: 'support-chat', label: 'Чат с поддержкой', icon: <GroupRoundedIcon fontSize="small" /> },
   ],
 };
 
@@ -224,6 +230,10 @@ const TAB_TITLES = {
   statuses: {
     title: 'Статусы и роли',
     subtitle: 'Справочная информация по этапам и доступным действиям.',
+  },
+  'support-chat': {
+    title: 'Чат поддержки',
+    subtitle: 'Общий чат для связи клиента с менеджером или администратором.',
   },
 };
 
@@ -273,6 +283,16 @@ function getPriorityColor(priority) {
 
 function byRole(users, role) {
   return users.filter((user) => user.role === role);
+}
+
+function getRoleLabel(role) {
+  const labels = {
+    ADMIN: 'Администратор',
+    MANAGER: 'Менеджер',
+    EXECUTOR: 'Исполнитель',
+    CLIENT: 'Клиент',
+  };
+  return labels[role] || role;
 }
 
 function getAllowedStatuses(statuses, role) {
@@ -333,6 +353,111 @@ function SectionCard({ title, subtitle, action, children, sx }) {
   );
 }
 
+function ChatPanel({
+  title,
+  subtitle,
+  messages,
+  loading,
+  error,
+  draft,
+  onDraftChange,
+  onSend,
+  sending,
+  scrollRef,
+  currentRole,
+  currentName,
+}) {
+  return (
+    <SectionCard title={title} subtitle={subtitle}>
+      <Stack spacing={2}>
+        {error ? <Alert severity="error">{error}</Alert> : null}
+
+        <Box
+          ref={scrollRef}
+          sx={{
+            maxHeight: 420,
+            overflowY: 'auto',
+            pr: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+          }}
+        >
+          {loading && !messages.length ? (
+            <Box sx={{ py: 4, display: 'grid', placeItems: 'center' }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : null}
+
+          {!loading && !messages.length ? (
+            <EmptyState
+              title="Пока нет сообщений"
+              subtitle="Напишите первое сообщение, чтобы начать диалог."
+            />
+          ) : null}
+
+          {messages.map((message) => {
+            const isMine = message.authorRole === currentRole && message.authorName === currentName;
+            return (
+              <Box
+                key={message.id}
+                sx={{
+                  display: 'flex',
+                  justifyContent: isMine ? 'flex-end' : 'flex-start',
+                }}
+              >
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1.5,
+                    maxWidth: { xs: '100%', sm: '80%' },
+                    borderRadius: '16px',
+                    bgcolor: isMine ? 'rgba(26,115,232,0.08)' : '#fff',
+                  }}
+                >
+                  <Stack spacing={0.75}>
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                      <Typography variant="subtitle2">{message.authorName}</Typography>
+                      <Chip label={getRoleLabel(message.authorRole)} size="small" variant="outlined" />
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDateTime(message.createdAt)}
+                      </Typography>
+                    </Stack>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {message.message}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              </Box>
+            );
+          })}
+        </Box>
+
+        <Divider />
+
+        <Box component="form" onSubmit={onSend}>
+          <Stack spacing={1.5}>
+            <TextField
+              label="Сообщение"
+              value={draft}
+              onChange={(event) => onDraftChange(event.target.value)}
+              placeholder="Напишите сообщение"
+              multiline
+              minRows={3}
+              maxRows={6}
+            />
+            <Stack direction="row" justifyContent="flex-end" alignItems="center" spacing={2} flexWrap="wrap">
+              <Button type="submit" variant="contained" disabled={sending || !draft.trim()}>
+                {sending ? 'Отправка...' : 'Отправить'}
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      </Stack>
+    </SectionCard>
+  );
+}
+
 function EmptyState({ title, subtitle }) {
   return (
     <Box
@@ -361,6 +486,7 @@ const ROUTE_PATHS = {
   users: '/users',
   clients: '/clients',
   statuses: '/statuses',
+  'support-chat': '/chat',
 };
 
 function getNavigationState(pathname) {
@@ -387,20 +513,32 @@ function getNavigationState(pathname) {
   if (normalizedPath === '/statuses') {
     return { tab: 'statuses', orderId: null };
   }
+  if (normalizedPath === '/chat') {
+    return { tab: 'support-chat', orderId: null };
+  }
   return { tab: 'dashboard', orderId: null };
 }
 
 function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
-  const [form, setForm] = useState({ login: '', password: '' });
+  const [mode, setMode] = useState('login');
+  const [loginForm, setLoginForm] = useState({ login: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({
+    login: '',
+    fullName: '',
+    email: '',
+    phone: '',
+    companyName: '',
+    password: '',
+  });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = async (event) => {
+  const handleLoginSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
     setErrorMessage('');
     try {
-      const response = await login(form.login, form.password);
+      const response = await login(loginForm.login, loginForm.password);
       setAuthToken(response.token);
       onSuccess(response.user, response.token);
     } catch (error) {
@@ -410,6 +548,32 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
       setLoading(false);
     }
   };
+
+  const handleRegisterSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
+    try {
+      const response = await register({
+        login: registerForm.login,
+        fullName: registerForm.fullName,
+        email: registerForm.email,
+        phone: registerForm.phone,
+        password: registerForm.password,
+        companyName: registerForm.companyName,
+      });
+      setAuthToken(response.token);
+      onSuccess(response.user, response.token);
+      setSnackbar({ open: true, message: 'Аккаунт создан', severity: 'success' });
+    } catch (error) {
+      setErrorMessage(error.message);
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isLogin = mode === 'login';
 
   return (
     <Box
@@ -421,80 +585,159 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
         py: 4,
       }}
     >
-      <Container maxWidth="sm">
-        <Card
-          sx={{
-            overflow: 'hidden',
-            bgcolor: '#fff',
-            boxShadow: '0 24px 60px rgba(60,64,67,0.14)',
-          }}
-        >
-          <Box
-            sx={{
-              p: { xs: 3, md: 4 },
-              color: '#fff',
-              background: 'linear-gradient(145deg, rgba(26,115,232,0.96) 0%, rgba(15,157,88,0.92) 100%)',
-              textAlign: 'center',
-              position: 'relative',
-            }}
-          >
-            <Box
+      <Container maxWidth="lg">
+        <Grid container spacing={3} alignItems="stretch">
+          <Grid item xs={12} md={6}>
+            <Card
               sx={{
-                position: 'absolute',
-                inset: 'auto -36px -56px auto',
-                width: 180,
-                height: 180,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.12)',
-                filter: 'blur(12px)',
+                height: '100%',
+                overflow: 'hidden',
+                background: 'linear-gradient(145deg, rgba(26,115,232,0.96) 0%, rgba(15,157,88,0.92) 100%)',
+                color: '#fff',
               }}
-            />
-            <Stack spacing={1.5} sx={{ position: 'relative', alignItems: 'center' }}>
-              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.88)' }}>
-                ПК «Импульс»
-              </Typography>
-              <Typography variant="h4" sx={{ maxWidth: 500 }}>
-                Управление заказами без лишнего шума и путаницы
-              </Typography>
-              <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.9)', maxWidth: 520 }}>
-                Понятный интерфейс для администратора, менеджера, исполнителя и клиента.
-              </Typography>
-            </Stack>
-          </Box>
+            >
+              <CardContent sx={{ p: { xs: 3, md: 4 }, height: '100%' }}>
+                <Stack spacing={2.5} sx={{ height: '100%', justifyContent: 'space-between' }}>
+                  <Stack spacing={1.5}>
+                    <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.88)' }}>
+                      ПК «Импульс»
+                    </Typography>
+                    <Typography variant="h4" sx={{ maxWidth: 520 }}>
+                      Управление заказами, статусами и чатом с поддержкой в одном месте
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.92)', maxWidth: 540 }}>
+                      Система помогает клиентам быстро оставить запрос, а менеджерам и администраторам держать производство под контролем.
+                    </Typography>
+                  </Stack>
 
-          <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-            <Stack spacing={2.5} sx={{ alignItems: 'center', textAlign: 'center' }}>
-              <Box sx={{ width: '100%' }}>
-                <Typography variant="h5">Войти в систему</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
-                  Используйте рабочий логин и пароль, чтобы открыть нужное рабочее место.
-                </Typography>
-              </Box>
-
-              <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-                <Stack spacing={2.2}>
-                  {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-                  <TextField
-                    label="Логин или email"
-                    value={form.login}
-                    onChange={(event) => setForm((previous) => ({ ...previous, login: event.target.value }))}
-                    autoComplete="username"
-                  />
-                  <TextField
-                    label="Пароль"
-                    type="password"
-                    value={form.password}
-                    onChange={(event) => setForm((previous) => ({ ...previous, password: event.target.value }))}
-                    autoComplete="current-password"
-                  />
-                  <Button type="submit" variant="contained" size="large" disabled={loading}>
-                    {loading ? 'Выполняется вход...' : 'Войти'}
-                  </Button>
+                  <Stack spacing={1.5}>
+                    <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
+                      Как это работает
+                    </Typography>
+                    <Stack spacing={1.1}>
+                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
+                        • Клиент регистрируется и получает доступ к личному кабинету.
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
+                        • Для нового заказа пишется запрос в чат поддержки.
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
+                        • Менеджер или администратор берет запрос в работу и переводит его в заказ.
+                      </Typography>
+                    </Stack>
+                  </Stack>
                 </Stack>
-              </Box>
-            </Stack>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%', boxShadow: '0 24px 60px rgba(60,64,67,0.14)' }}>
+              <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                <Stack spacing={2.5}>
+                  <Box>
+                    <Typography variant="h5">{isLogin ? 'Войти в систему' : 'Регистрация клиента'}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
+                      {isLogin
+                        ? 'Используйте рабочий логин и пароль, чтобы открыть нужное рабочее место.'
+                        : 'Создайте аккаунт, чтобы войти в личный кабинет и написать в чат поддержки.'}
+                    </Typography>
+                  </Box>
+
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant={isLogin ? 'contained' : 'outlined'}
+                      onClick={() => {
+                        setMode('login');
+                        setErrorMessage('');
+                      }}
+                    >
+                      Войти
+                    </Button>
+                    <Button
+                      variant={!isLogin ? 'contained' : 'outlined'}
+                      onClick={() => {
+                        setMode('register');
+                        setErrorMessage('');
+                      }}
+                    >
+                      Регистрация
+                    </Button>
+                  </Stack>
+
+                  {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+
+                  {isLogin ? (
+                    <Box component="form" onSubmit={handleLoginSubmit}>
+                      <Stack spacing={2}>
+                        <TextField
+                          label="Логин или email"
+                          value={loginForm.login}
+                          onChange={(event) => setLoginForm((previous) => ({ ...previous, login: event.target.value }))}
+                          autoComplete="username"
+                        />
+                        <TextField
+                          label="Пароль"
+                          type="password"
+                          value={loginForm.password}
+                          onChange={(event) => setLoginForm((previous) => ({ ...previous, password: event.target.value }))}
+                          autoComplete="current-password"
+                        />
+                        <Button type="submit" variant="contained" size="large" disabled={loading}>
+                          {loading ? 'Выполняется вход...' : 'Войти'}
+                        </Button>
+                      </Stack>
+                    </Box>
+                  ) : (
+                    <Box component="form" onSubmit={handleRegisterSubmit}>
+                      <Stack spacing={2}>
+                        <TextField
+                          label="Логин"
+                          value={registerForm.login}
+                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, login: event.target.value }))}
+                          autoComplete="username"
+                        />
+                        <TextField
+                          label="ФИО"
+                          value={registerForm.fullName}
+                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, fullName: event.target.value }))}
+                          autoComplete="name"
+                        />
+                        <TextField
+                          label="Email"
+                          value={registerForm.email}
+                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, email: event.target.value }))}
+                          autoComplete="email"
+                        />
+                        <TextField
+                          label="Телефон"
+                          value={registerForm.phone}
+                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
+                          autoComplete="tel"
+                        />
+                        <TextField
+                          label="Название компании"
+                          value={registerForm.companyName}
+                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, companyName: event.target.value }))}
+                        />
+                        <TextField
+                          label="Пароль"
+                          type="password"
+                          value={registerForm.password}
+                          onChange={(event) => setRegisterForm((previous) => ({ ...previous, password: event.target.value }))}
+                          autoComplete="new-password"
+                        />
+                        <Button type="submit" variant="contained" size="large" disabled={loading}>
+                          {loading ? 'Создание...' : 'Создать аккаунт'}
+                        </Button>
+                      </Stack>
+                    </Box>
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
       </Container>
 
       <Snackbar
@@ -572,6 +815,17 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const [chatError, setChatError] = useState('');
   const chatLastMessageAtRef = useRef(null);
   const chatScrollRef = useRef(null);
+  const [selectedSupportCompanyId, setSelectedSupportCompanyId] = useState(
+    auth.role === 'CLIENT' ? auth.clientCompanyId || '' : '',
+  );
+  const [supportChatMessages, setSupportChatMessages] = useState([]);
+  const [supportChatDraft, setSupportChatDraft] = useState('');
+  const [supportChatLastMessageAt, setSupportChatLastMessageAt] = useState(null);
+  const [supportChatLoading, setSupportChatLoading] = useState(false);
+  const [supportChatSending, setSupportChatSending] = useState(false);
+  const [supportChatError, setSupportChatError] = useState('');
+  const supportChatLastMessageAtRef = useRef(null);
+  const supportChatScrollRef = useRef(null);
 
   const tabs = ROLE_TABS[auth.role] || ROLE_TABS.CLIENT;
   const allowedStatuses = useMemo(() => getAllowedStatuses(data.statuses, auth.role), [data.statuses, auth.role]);
@@ -604,6 +858,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     (auth.role === 'ADMIN'
       || (auth.role === 'MANAGER' && selectedOrderDetails.manager?.id === auth.id)
       || (auth.role === 'CLIENT' && selectedOrderDetails.clientCompany?.id === auth.clientCompanyId));
+  const selectedSupportCompanyIdValue =
+    auth.role === 'CLIENT' ? auth.clientCompanyId || '' : selectedSupportCompanyId;
 
   const showMessage = useCallback((message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -768,6 +1024,81 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   }, [chatMessages, selectedOrderId]);
 
   useEffect(() => {
+    if (auth.role === 'CLIENT') {
+      setSelectedSupportCompanyId(auth.clientCompanyId || '');
+      return;
+    }
+    if (data.clients.length && !selectedSupportCompanyId) {
+      setSelectedSupportCompanyId(String(data.clients[0].id));
+    }
+  }, [auth.clientCompanyId, auth.role, data.clients, selectedSupportCompanyId]);
+
+  useEffect(() => {
+    supportChatLastMessageAtRef.current = supportChatLastMessageAt;
+  }, [supportChatLastMessageAt]);
+
+  useEffect(() => {
+    if (tab !== 'support-chat' || !selectedSupportCompanyIdValue) {
+      setSupportChatMessages([]);
+      setSupportChatDraft('');
+      setSupportChatLastMessageAt(null);
+      setSupportChatLoading(false);
+      setSupportChatError('');
+      supportChatLastMessageAtRef.current = null;
+      return;
+    }
+
+    let active = true;
+    const syncSupportChat = async () => {
+      setSupportChatLoading(true);
+      setSupportChatError('');
+      try {
+        await reloadSupportChat(selectedSupportCompanyIdValue);
+      } catch (error) {
+        if (active) {
+          handleApiError(error);
+          setSupportChatError(error.message);
+        }
+      } finally {
+        if (active) {
+          setSupportChatLoading(false);
+        }
+      }
+    };
+
+    syncSupportChat();
+    const intervalId = setInterval(async () => {
+      if (!active) {
+        return;
+      }
+      try {
+        const state = await loadSupportChatState(selectedSupportCompanyIdValue);
+        const nextLastMessageAt = state?.lastMessageAt || null;
+        if ((nextLastMessageAt || '') !== (supportChatLastMessageAtRef.current || '')) {
+          await reloadSupportChat(selectedSupportCompanyIdValue);
+        }
+      } catch (error) {
+        if (active && error?.status !== 401) {
+          setSupportChatError(error.message);
+        } else if (error?.status === 401) {
+          handleApiError(error);
+        }
+      }
+    }, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
+  }, [tab, selectedSupportCompanyIdValue, handleApiError]);
+
+  useEffect(() => {
+    if (supportChatScrollRef.current) {
+      supportChatScrollRef.current.scrollTop = supportChatScrollRef.current.scrollHeight;
+    }
+  }, [supportChatMessages, selectedSupportCompanyIdValue]);
+
+  useEffect(() => {
     if (allowedStatuses.length && !allowedStatuses.some((item) => item.value === statusForm.status)) {
       setStatusForm((previous) => ({ ...previous, status: allowedStatuses[0].value }));
     }
@@ -824,6 +1155,40 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       setChatError(error.message);
     } finally {
       setChatSending(false);
+    }
+  };
+
+  const reloadSupportChat = async (clientCompanyId) => {
+    const [messages, state] = await Promise.all([
+      loadSupportChatMessages(clientCompanyId),
+      loadSupportChatState(clientCompanyId),
+    ]);
+    const nextLastMessageAt = state?.lastMessageAt || null;
+    setSupportChatError('');
+    setSupportChatMessages(messages);
+    setSupportChatLastMessageAt(nextLastMessageAt);
+    supportChatLastMessageAtRef.current = nextLastMessageAt;
+  };
+
+  const handleSendSupportChatMessage = async (event) => {
+    event.preventDefault();
+    if (!selectedSupportCompanyIdValue || !supportChatDraft.trim()) {
+      return;
+    }
+
+    setSupportChatSending(true);
+    setSupportChatError('');
+    try {
+      await sendSupportChatMessage(selectedSupportCompanyIdValue, {
+        message: supportChatDraft.trim(),
+      });
+      setSupportChatDraft('');
+      await reloadSupportChat(selectedSupportCompanyIdValue);
+    } catch (error) {
+      handleApiError(error);
+      setSupportChatError(error.message);
+    } finally {
+      setSupportChatSending(false);
     }
   };
 
@@ -987,7 +1352,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             {auth.fullName}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {auth.roleLabel}
+            {getRoleLabel(auth.role)}
           </Typography>
           {auth.clientCompanyName ? (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -1049,7 +1414,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
               <Grid item xs={12} md={8}>
                 <Stack spacing={1.5}>
                   <Chip
-                    label={auth.roleLabel}
+                    label={getRoleLabel(auth.role)}
                     sx={{
                       alignSelf: 'flex-start',
                       bgcolor: 'rgba(255,255,255,0.16)',
@@ -1063,19 +1428,15 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                   <Typography sx={{ color: 'rgba(255,255,255,0.9)', maxWidth: 720 }}>
                     Здесь видно главное: сколько заказов в работе, где есть задержки и какие карточки требуют следующего шага.
                   </Typography>
+                  {auth.role === 'CLIENT' ? (
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)', maxWidth: 720 }}>
+                      Для нового заказа напишите запрос в чат поддержки, и менеджер свяжется с вами.
+                    </Typography>
+                  ) : null}
                 </Stack>
               </Grid>
               <Grid item xs={12} md={4}>
                 <Stack spacing={1.5}>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleRefresh}
-                    startIcon={<RefreshRoundedIcon />}
-                    sx={{ bgcolor: '#fff', color: '#1a73e8', '&:hover': { bgcolor: '#f8fbff' } }}
-                  >
-                    Обновить данные
-                  </Button>
                   <Button
                     variant="outlined"
                     onClick={() => setTab(tabs[1]?.value || 'orders')}
@@ -1354,7 +1715,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         </SectionCard>
 
         {auth.role !== 'CLIENT' ? (
-          <SectionCard title="Сменить статус" subtitle={`Доступно для роли ${auth.roleLabel}`}>
+          <SectionCard title="Сменить статус" subtitle={`Доступно для роли ${getRoleLabel(auth.role)}`}>
             <Box component="form" onSubmit={handleChangeStatus}>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
@@ -1420,101 +1781,76 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     }
 
     return (
-      <SectionCard
+      <ChatPanel
         title="Чат заказа"
-        subtitle="Сообщения в этом чате доступны администратору, менеджеру этого заказа и клиенту этого заказа. Автообновление каждые 5 секунд."
-      >
-        <Stack spacing={2}>
-          {chatError ? <Alert severity="error">{chatError}</Alert> : null}
+        subtitle="Сообщения в этом чате доступны администратору, менеджеру этого заказа и клиенту этого заказа."
+        messages={chatMessages}
+        loading={chatLoading}
+        error={chatError}
+        draft={chatDraft}
+        onDraftChange={setChatDraft}
+        onSend={handleSendChatMessage}
+        sending={chatSending}
+        scrollRef={chatScrollRef}
+        currentRole={auth.role}
+        currentName={auth.fullName}
+      />
+    );
+  };
 
-          <Box
-            ref={chatScrollRef}
-            sx={{
-              maxHeight: 420,
-              overflowY: 'auto',
-              pr: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1.5,
-            }}
-          >
-            {chatLoading && !chatMessages.length ? (
-              <Box sx={{ py: 4, display: 'grid', placeItems: 'center' }}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : null}
+  const renderSupportChatSection = () => {
+    if (auth.role !== 'ADMIN' && auth.role !== 'MANAGER' && auth.role !== 'CLIENT') {
+      return null;
+    }
 
-            {!chatLoading && !chatMessages.length ? (
-              <EmptyState
-                title="Пока нет сообщений"
-                subtitle="Напишите первое сообщение, чтобы начать обсуждение заказа."
-              />
-            ) : null}
+    if (!selectedSupportCompanyIdValue) {
+      return (
+        <SectionCard
+          title="Чат поддержки"
+          subtitle="Выберите клиента, чтобы открыть его общий чат."
+        >
+          <EmptyState
+            title="Нет клиента для чата"
+            subtitle="Пока нет доступных компаний-заказчиков."
+          />
+        </SectionCard>
+      );
+    }
 
-            {chatMessages.map((message) => {
-              const isMine =
-                message.authorRole === auth.role
-                && message.authorName === auth.fullName;
-              return (
-                <Box
-                  key={message.id}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: isMine ? 'flex-end' : 'flex-start',
-                  }}
-                >
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 1.5,
-                      maxWidth: { xs: '100%', sm: '80%' },
-                      borderRadius: '16px',
-                      bgcolor: isMine ? 'rgba(26,115,232,0.08)' : '#fff',
-                    }}
-                  >
-                    <Stack spacing={0.75}>
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                        <Typography variant="subtitle2">{message.authorName}</Typography>
-                        <Chip label={message.authorRole} size="small" variant="outlined" />
-                        <Typography variant="caption" color="text.secondary">
-                          {formatDateTime(message.createdAt)}
-                        </Typography>
-                      </Stack>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                        {message.message}
-                      </Typography>
-                    </Stack>
-                  </Paper>
-                </Box>
-              );
-            })}
-          </Box>
-
-          <Divider />
-
-          <Box component="form" onSubmit={handleSendChatMessage}>
-            <Stack spacing={1.5}>
-              <TextField
-                label="Сообщение"
-                value={chatDraft}
-                onChange={(event) => setChatDraft(event.target.value)}
-                placeholder="Напишите сообщение по заказу"
-                multiline
-                minRows={3}
-                maxRows={6}
-              />
-              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} flexWrap="wrap">
-                <Typography variant="caption" color="text.secondary">
-                  Только текст. Сообщения обновляются автоматически без WebSocket.
-                </Typography>
-                <Button type="submit" variant="contained" disabled={chatSending || !chatDraft.trim()}>
-                  {chatSending ? 'Отправка...' : 'Отправить'}
-                </Button>
-              </Stack>
-            </Stack>
-          </Box>
-        </Stack>
-      </SectionCard>
+    return (
+      <Stack spacing={2.2}>
+        {auth.role !== 'CLIENT' ? (
+          <SectionCard title="Клиент для чата" subtitle="Выберите компанию, чтобы открыть её общий чат поддержки.">
+            <TextField
+              select
+              label="Компания"
+              value={String(selectedSupportCompanyIdValue)}
+              onChange={(event) => setSelectedSupportCompanyId(event.target.value)}
+              fullWidth
+            >
+              {data.clients.map((client) => (
+                <MenuItem key={client.id} value={String(client.id)}>
+                  {client.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </SectionCard>
+        ) : null}
+        <ChatPanel
+          title="Чат поддержки"
+          subtitle="Здесь клиент пишет запрос на новый заказ, а менеджер или администратор отвечает в том же диалоге."
+          messages={supportChatMessages}
+          loading={supportChatLoading}
+          error={supportChatError}
+          draft={supportChatDraft}
+          onDraftChange={setSupportChatDraft}
+          onSend={handleSendSupportChatMessage}
+          sending={supportChatSending}
+          scrollRef={supportChatScrollRef}
+          currentRole={auth.role}
+          currentName={auth.fullName}
+        />
+      </Stack>
     );
   };
 
@@ -1645,7 +1981,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                       </Typography>
                     </Box>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
-                      <Chip label={user.roleLabel} color="primary" size="small" />
+                      <Chip label={getRoleLabel(user.role)} color="primary" size="small" />
                       <Chip label={user.active ? 'Активен' : 'Отключён'} color={user.active ? 'success' : 'default'} size="small" />
                     </Stack>
                   </Stack>
@@ -1776,10 +2112,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             </Box>
           </Stack>
           <Box sx={{ flex: 1 }} />
-          <Chip label={auth.roleLabel} color="primary" variant="outlined" sx={{ display: { xs: 'none', sm: 'inline-flex' } }} />
-          <Button startIcon={<RefreshRoundedIcon />} onClick={handleRefresh}>
-            Обновить
-          </Button>
+          <Chip label={getRoleLabel(auth.role)} color="primary" variant="outlined" sx={{ display: { xs: 'none', sm: 'inline-flex' } }} />
           <Button startIcon={<LogoutRoundedIcon />} onClick={onLogout}>
             Выйти
           </Button>
@@ -1823,6 +2156,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             {tab === 'dashboard' ? renderDashboard() : null}
             {selectedOrderId ? renderOrderPage() : null}
             {!selectedOrderId && (tab === 'orders' || tab === 'tasks') ? renderOrdersWorkspace(auth.role === 'CLIENT' ? data.orders : filteredOrders) : null}
+            {!selectedOrderId && tab === 'support-chat' ? renderSupportChatSection() : null}
             {!selectedOrderId && tab === 'create-order' ? (
               <SectionCard title="Новый заказ" subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту">
                 <Box component="form" onSubmit={handleCreateOrder}>
