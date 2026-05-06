@@ -15,11 +15,15 @@ import com.github.danbel.tukhtarovapi.repository.OrderStatusHistoryRepository;
 import com.github.danbel.tukhtarovapi.repository.ProductionOrderRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 
 @Component
 @RequiredArgsConstructor
@@ -31,10 +35,15 @@ public class BootstrapService implements CommandLineRunner {
     private final OrderCommentRepository orderCommentRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final PasswordEncoder passwordEncoder;
+    private final DataSource dataSource;
 
     @Override
     @Transactional
     public void run(String... args) {
+        if (!hasTable("app_users")) {
+            return;
+        }
+
         if (appUserRepository.count() > 0) {
             return;
         }
@@ -46,6 +55,17 @@ public class BootstrapService implements CommandLineRunner {
         clientCompanyRepository.deleteAllInBatch();
 
         seedDemoData();
+    }
+
+    private boolean hasTable(String tableName) {
+        try (Connection connection = dataSource.getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet tables = metaData.getTables(null, null, tableName, new String[] {"TABLE"})) {
+                return tables.next();
+            }
+        } catch (Exception exception) {
+            return false;
+        }
     }
 
     private void seedDemoData() {
