@@ -478,60 +478,7 @@ function EmptyState({ title, subtitle }) {
   );
 }
 
-const ROUTE_PATHS = {
-  dashboard: '/',
-  orders: '/orders',
-  tasks: '/tasks',
-  'create-order': '/create-order',
-  users: '/users',
-  clients: '/clients',
-  statuses: '/statuses',
-  'support-chat': '/chat',
-};
-
-function getNavigationState(pathname) {
-  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
-  const orderMatch = normalizedPath.match(/^\/orders\/(\d+)$/);
-  if (orderMatch) {
-    return { tab: 'orders', orderId: Number(orderMatch[1]) };
-  }
-  if (normalizedPath === '/orders') {
-    return { tab: 'orders', orderId: null };
-  }
-  if (normalizedPath === '/tasks') {
-    return { tab: 'tasks', orderId: null };
-  }
-  if (normalizedPath === '/create-order') {
-    return { tab: 'create-order', orderId: null };
-  }
-  if (normalizedPath === '/users') {
-    return { tab: 'users', orderId: null };
-  }
-  if (normalizedPath === '/clients') {
-    return { tab: 'clients', orderId: null };
-  }
-  if (normalizedPath === '/statuses') {
-    return { tab: 'statuses', orderId: null };
-  }
-  if (normalizedPath === '/chat') {
-    return { tab: 'support-chat', orderId: null };
-  }
-  return { tab: 'dashboard', orderId: null };
-}
-
-function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
-  const [mode, setMode] = useState('login');
-  const [loginForm, setLoginForm] = useState({ login: '', password: '' });
-  const [registerForm, setRegisterForm] = useState({
-    login: '',
-    fullName: '',
-    email: '',
-    phone: '',
-    companyName: '',
-    password: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
   const heroMetrics = [
     { value: '4 роли', label: 'Администратор, менеджер, исполнитель и клиент' },
     { value: '1 чат', label: 'Отдельный чат поддержки для связи клиента с командой' },
@@ -556,48 +503,6 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
     'Пишет запрос в чат поддержки и описывает задачу.',
     'Менеджер связывается с клиентом и запускает работу по заказу.',
   ];
-
-  const handleLoginSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setErrorMessage('');
-    try {
-      const response = await login(loginForm.login, loginForm.password);
-      setAuthToken(response.token);
-      onSuccess(response.user, response.token);
-    } catch (error) {
-      setErrorMessage(error.message);
-      setSnackbar({ open: true, message: error.message, severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegisterSubmit = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setErrorMessage('');
-    try {
-      const response = await register({
-        login: registerForm.login,
-        fullName: registerForm.fullName,
-        email: registerForm.email,
-        phone: registerForm.phone,
-        password: registerForm.password,
-        companyName: registerForm.companyName,
-      });
-      setAuthToken(response.token);
-      onSuccess(response.user, response.token);
-      setSnackbar({ open: true, message: 'Аккаунт создан', severity: 'success' });
-    } catch (error) {
-      setErrorMessage(error.message);
-      setSnackbar({ open: true, message: error.message, severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const isLogin = mode === 'login';
 
   return (
     <Box
@@ -658,10 +563,10 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
               </Box>
             </Stack>
             <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', sm: 'flex' } }}>
-              <Button variant="text" onClick={() => setMode('login')}>
+              <Button variant="text" onClick={onLogin}>
                 Войти
               </Button>
-              <Button variant="contained" onClick={() => setMode('register')}>
+              <Button variant="contained" onClick={onRegister}>
                 Регистрация
               </Button>
             </Stack>
@@ -711,14 +616,14 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
                         <Button
                           variant="contained"
                           color="inherit"
-                          onClick={() => setMode('register')}
+                          onClick={onRegister}
                           sx={{ bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#f8fbff' } }}
                         >
                           Создать аккаунт
                         </Button>
                         <Button
                           variant="outlined"
-                          onClick={() => setMode('login')}
+                          onClick={onLogin}
                           sx={{
                             borderColor: 'rgba(255,255,255,0.44)',
                             color: '#fff',
@@ -793,103 +698,41 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
                 <CardContent sx={{ p: { xs: 3, md: 4 } }}>
                   <Stack spacing={2.5}>
                     <Box>
-                      <Typography variant="h5">{isLogin ? 'Вход в систему' : 'Регистрация клиента'}</Typography>
+                      <Typography variant="h5">Что получает клиент</Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
-                        {isLogin
-                          ? 'Введите логин и пароль, чтобы открыть рабочее пространство.'
-                          : 'Создайте аккаунт и получите доступ к чату поддержки и личному кабинету.'}
+                        Регистрация, вход и чат поддержки вынесены в отдельные экраны. После входа клиент открывает свой кабинет и пишет запрос менеджеру.
                       </Typography>
                     </Box>
 
-                    <Stack direction="row" spacing={1}>
-                      <Button
-                        variant={isLogin ? 'contained' : 'outlined'}
-                        onClick={() => {
-                          setMode('login');
-                          setErrorMessage('');
-                        }}
-                      >
-                        Войти
-                      </Button>
-                      <Button
-                        variant={!isLogin ? 'contained' : 'outlined'}
-                        onClick={() => {
-                          setMode('register');
-                          setErrorMessage('');
-                        }}
-                      >
-                        Регистрация
-                      </Button>
+                    <Stack spacing={1.5}>
+                      <Paper variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+                        <Typography variant="subtitle2">1. Зарегистрироваться</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          Создать аккаунт и сразу получить доступ к личному кабинету.
+                        </Typography>
+                      </Paper>
+                      <Paper variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+                        <Typography variant="subtitle2">2. Написать запрос</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          Отправить сообщение в чат поддержки и описать нужный заказ.
+                        </Typography>
+                      </Paper>
+                      <Paper variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+                        <Typography variant="subtitle2">3. Получить ответ</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          Менеджер связывается с клиентом и запускает обработку запроса.
+                        </Typography>
+                      </Paper>
                     </Stack>
 
-                    {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-
-                    {isLogin ? (
-                      <Box component="form" onSubmit={handleLoginSubmit}>
-                        <Stack spacing={2}>
-                          <TextField
-                            label="Логин или email"
-                            value={loginForm.login}
-                            onChange={(event) => setLoginForm((previous) => ({ ...previous, login: event.target.value }))}
-                            autoComplete="username"
-                          />
-                          <TextField
-                            label="Пароль"
-                            type="password"
-                            value={loginForm.password}
-                            onChange={(event) => setLoginForm((previous) => ({ ...previous, password: event.target.value }))}
-                            autoComplete="current-password"
-                          />
-                          <Button type="submit" variant="contained" size="large" disabled={loading}>
-                            {loading ? 'Выполняется вход...' : 'Войти'}
-                          </Button>
-                        </Stack>
-                      </Box>
-                    ) : (
-                      <Box component="form" onSubmit={handleRegisterSubmit}>
-                        <Stack spacing={2}>
-                          <TextField
-                            label="Логин"
-                            value={registerForm.login}
-                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, login: event.target.value }))}
-                            autoComplete="username"
-                          />
-                          <TextField
-                            label="ФИО"
-                            value={registerForm.fullName}
-                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, fullName: event.target.value }))}
-                            autoComplete="name"
-                          />
-                          <TextField
-                            label="Email"
-                            value={registerForm.email}
-                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, email: event.target.value }))}
-                            autoComplete="email"
-                          />
-                          <TextField
-                            label="Телефон"
-                            value={registerForm.phone}
-                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
-                            autoComplete="tel"
-                          />
-                          <TextField
-                            label="Название компании"
-                            value={registerForm.companyName}
-                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, companyName: event.target.value }))}
-                          />
-                          <TextField
-                            label="Пароль"
-                            type="password"
-                            value={registerForm.password}
-                            onChange={(event) => setRegisterForm((previous) => ({ ...previous, password: event.target.value }))}
-                            autoComplete="new-password"
-                          />
-                          <Button type="submit" variant="contained" size="large" disabled={loading}>
-                            {loading ? 'Создание...' : 'Создать аккаунт'}
-                          </Button>
-                        </Stack>
-                      </Box>
-                    )}
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
+                      <Button variant="contained" onClick={onRegister}>
+                        Регистрация
+                      </Button>
+                      <Button variant="outlined" onClick={onLogin}>
+                        Войти
+                      </Button>
+                    </Stack>
                   </Stack>
                 </CardContent>
               </Card>
@@ -911,6 +754,245 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
     </Box>
   );
 }
+
+const ROUTE_PATHS = {
+  dashboard: '/',
+  orders: '/orders',
+  tasks: '/tasks',
+  'create-order': '/create-order',
+  users: '/users',
+  clients: '/clients',
+  statuses: '/statuses',
+  'support-chat': '/chat',
+};
+
+function getNavigationState(pathname) {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  const orderMatch = normalizedPath.match(/^\/orders\/(\d+)$/);
+  if (orderMatch) {
+    return { tab: 'orders', orderId: Number(orderMatch[1]) };
+  }
+  if (normalizedPath === '/orders') {
+    return { tab: 'orders', orderId: null };
+  }
+  if (normalizedPath === '/tasks') {
+    return { tab: 'tasks', orderId: null };
+  }
+  if (normalizedPath === '/create-order') {
+    return { tab: 'create-order', orderId: null };
+  }
+  if (normalizedPath === '/users') {
+    return { tab: 'users', orderId: null };
+  }
+  if (normalizedPath === '/clients') {
+    return { tab: 'clients', orderId: null };
+  }
+  if (normalizedPath === '/statuses') {
+    return { tab: 'statuses', orderId: null };
+  }
+  if (normalizedPath === '/chat') {
+    return { tab: 'support-chat', orderId: null };
+  }
+  return { tab: 'dashboard', orderId: null };
+}
+
+function LoginScreen({ initialMode = 'login', onNavigate, onSuccess, snackbar, setSnackbar }) {
+  const [mode, setMode] = useState('login');
+  const [loginForm, setLoginForm] = useState({ login: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({
+    login: '',
+    fullName: '',
+    email: '',
+    phone: '',
+    companyName: '',
+    password: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  const handleLoginSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
+    try {
+      const response = await login(loginForm.login, loginForm.password);
+      setAuthToken(response.token);
+      onSuccess(response.user, response.token);
+    } catch (error) {
+      setErrorMessage(error.message);
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
+    try {
+      const response = await register({
+        login: registerForm.login,
+        fullName: registerForm.fullName,
+        email: registerForm.email,
+        phone: registerForm.phone,
+        password: registerForm.password,
+        companyName: registerForm.companyName,
+      });
+      setAuthToken(response.token);
+      onSuccess(response.user, response.token);
+      setSnackbar({ open: true, message: 'Аккаунт создан', severity: 'success' });
+    } catch (error) {
+      setErrorMessage(error.message);
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isLogin = mode === 'login';
+
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        px: 2,
+        py: 4,
+        background:
+          'radial-gradient(circle at top left, rgba(26,115,232,0.12), transparent 30%), radial-gradient(circle at right 20%, rgba(15,157,88,0.10), transparent 24%), linear-gradient(180deg, #f8fbff 0%, #f6f8fc 100%)',
+      }}
+    >
+      <Container maxWidth="sm">
+        <Stack spacing={2}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Avatar sx={{ bgcolor: 'primary.main', width: 42, height: 42 }}>И</Avatar>
+              <Box>
+                <Typography variant="h6">ПК «Импульс»</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Авторизация и регистрация
+                </Typography>
+              </Box>
+            </Stack>
+            <Button variant="text" onClick={() => onNavigate('/')}>
+              На главную
+            </Button>
+          </Stack>
+
+          <Card sx={{ boxShadow: '0 24px 60px rgba(60,64,67,0.14)' }}>
+            <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="h5">{isLogin ? 'Войти в систему' : 'Регистрация клиента'}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
+                    {isLogin
+                      ? 'Введите логин и пароль, чтобы открыть личный кабинет.'
+                      : 'Создайте аккаунт, чтобы получить доступ к чату поддержки и личному кабинету.'}
+                  </Typography>
+                </Box>
+
+                <Stack direction="row" spacing={1}>
+                  <Button variant={isLogin ? 'contained' : 'outlined'} onClick={() => setMode('login')}>
+                    Войти
+                  </Button>
+                  <Button variant={!isLogin ? 'contained' : 'outlined'} onClick={() => setMode('register')}>
+                    Регистрация
+                  </Button>
+                </Stack>
+
+                {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+
+                {isLogin ? (
+                  <Box component="form" onSubmit={handleLoginSubmit}>
+                    <Stack spacing={2}>
+                      <TextField
+                        label="Логин или email"
+                        value={loginForm.login}
+                        onChange={(event) => setLoginForm((previous) => ({ ...previous, login: event.target.value }))}
+                        autoComplete="username"
+                      />
+                      <TextField
+                        label="Пароль"
+                        type="password"
+                        value={loginForm.password}
+                        onChange={(event) => setLoginForm((previous) => ({ ...previous, password: event.target.value }))}
+                        autoComplete="current-password"
+                      />
+                      <Button type="submit" variant="contained" size="large" disabled={loading}>
+                        {loading ? 'Выполняется вход...' : 'Войти'}
+                      </Button>
+                    </Stack>
+                  </Box>
+                ) : (
+                  <Box component="form" onSubmit={handleRegisterSubmit}>
+                    <Stack spacing={2}>
+                      <TextField
+                        label="Логин"
+                        value={registerForm.login}
+                        onChange={(event) => setRegisterForm((previous) => ({ ...previous, login: event.target.value }))}
+                        autoComplete="username"
+                      />
+                      <TextField
+                        label="ФИО"
+                        value={registerForm.fullName}
+                        onChange={(event) => setRegisterForm((previous) => ({ ...previous, fullName: event.target.value }))}
+                        autoComplete="name"
+                      />
+                      <TextField
+                        label="Email"
+                        value={registerForm.email}
+                        onChange={(event) => setRegisterForm((previous) => ({ ...previous, email: event.target.value }))}
+                        autoComplete="email"
+                      />
+                      <TextField
+                        label="Телефон"
+                        value={registerForm.phone}
+                        onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
+                        autoComplete="tel"
+                      />
+                      <TextField
+                        label="Название компании"
+                        value={registerForm.companyName}
+                        onChange={(event) => setRegisterForm((previous) => ({ ...previous, companyName: event.target.value }))}
+                      />
+                      <TextField
+                        label="Пароль"
+                        type="password"
+                        value={registerForm.password}
+                        onChange={(event) => setRegisterForm((previous) => ({ ...previous, password: event.target.value }))}
+                        autoComplete="new-password"
+                      />
+                      <Button type="submit" variant="contained" size="large" disabled={loading}>
+                        {loading ? 'Создание...' : 'Создать аккаунт'}
+                      </Button>
+                    </Stack>
+                  </Box>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
+      </Container>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar((previous) => ({ ...previous, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} variant="filled" sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+}
+
 
 function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const muiTheme = useTheme();
@@ -2430,12 +2512,21 @@ function App() {
   const [auth, setAuth] = useState(null);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   useEffect(() => {
+    const syncPath = () => {
+      setCurrentPath(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', syncPath);
+
     const token = localStorage.getItem('tukhtarov_token');
     if (!token) {
       setBootstrapping(false);
-      return;
+      return () => {
+        window.removeEventListener('popstate', syncPath);
+      };
     }
 
     setAuthToken(token);
@@ -2450,17 +2541,33 @@ function App() {
       .finally(() => {
         setBootstrapping(false);
       });
+    return () => {
+      window.removeEventListener('popstate', syncPath);
+    };
   }, []);
+
+  const navigateTo = (path) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+      setCurrentPath(path);
+    }
+  };
 
   const handleLoginSuccess = (user, token) => {
     setAuth(user);
     setAuthToken(token);
+    navigateTo('/');
   };
 
   const handleLogout = () => {
     clearAuthToken();
     setAuth(null);
+    navigateTo('/');
   };
+
+  const normalizedPath = currentPath.replace(/\/+$/, '') || '/';
+  const isLandingPage = normalizedPath === '/';
+  const initialAuthMode = normalizedPath === '/register' ? 'register' : 'login';
 
   if (bootstrapping) {
     return (
@@ -2478,8 +2585,21 @@ function App() {
       <CssBaseline />
       {auth ? (
         <Workspace auth={auth} onLogout={handleLogout} snackbar={snackbar} setSnackbar={setSnackbar} />
+      ) : isLandingPage ? (
+        <LandingPage
+          onLogin={() => navigateTo('/login')}
+          onRegister={() => navigateTo('/register')}
+          snackbar={snackbar}
+          setSnackbar={setSnackbar}
+        />
       ) : (
-        <LoginScreen onSuccess={handleLoginSuccess} snackbar={snackbar} setSnackbar={setSnackbar} />
+        <LoginScreen
+          initialMode={initialAuthMode}
+          onNavigate={navigateTo}
+          onSuccess={handleLoginSuccess}
+          snackbar={snackbar}
+          setSnackbar={setSnackbar}
+        />
       )}
     </ThemeProvider>
   );
