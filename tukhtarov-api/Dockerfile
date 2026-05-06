@@ -2,7 +2,7 @@ FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-COPY /opt/tukhtarov/tukhtarov-api/release/app.jar /app/app.jar
+COPY release/app.jar /app/app.jar
 
 EXPOSE 8080
 
