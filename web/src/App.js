@@ -382,111 +382,80 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
         py: 4,
       }}
     >
-      <Container maxWidth="lg">
-        <Grid container spacing={3} alignItems="stretch">
-          <Grid item xs={12} md={6}>
-            <Paper
+      <Container maxWidth="sm">
+        <Card
+          sx={{
+            overflow: 'hidden',
+            bgcolor: '#fff',
+            boxShadow: '0 24px 60px rgba(60,64,67,0.14)',
+          }}
+        >
+          <Box
+            sx={{
+              p: { xs: 3, md: 4 },
+              color: '#fff',
+              background: 'linear-gradient(145deg, rgba(26,115,232,0.96) 0%, rgba(15,157,88,0.92) 100%)',
+              textAlign: 'center',
+              position: 'relative',
+            }}
+          >
+            <Box
               sx={{
-                height: '100%',
-                p: { xs: 3, md: 5 },
-                color: '#fff',
-                background:
-                  'linear-gradient(145deg, rgba(26,115,232,0.96) 0%, rgba(15,157,88,0.92) 100%)',
-                position: 'relative',
-                overflow: 'hidden',
+                position: 'absolute',
+                inset: 'auto -36px -56px auto',
+                width: 180,
+                height: 180,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.12)',
+                filter: 'blur(12px)',
               }}
-            >
-              <Box
-                sx={{
-                  position: 'absolute',
-                  inset: 'auto -40px -60px auto',
-                  width: 220,
-                  height: 220,
-                  borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.12)',
-                  filter: 'blur(10px)',
-                }}
-              />
-              <Stack spacing={3} sx={{ position: 'relative' }}>
-                <Box>
-                  <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.85)' }}>
-                    ПК «Импульс»
-                  </Typography>
-                  <Typography variant="h4" sx={{ mt: 1, maxWidth: 520 }}>
-                    Управление заказами без лишнего шума и путаницы
-                  </Typography>
-                  <Typography variant="body1" sx={{ mt: 1.5, color: 'rgba(255,255,255,0.88)', maxWidth: 500 }}>
-                    Понятный интерфейс для администратора, менеджера, исполнителя и клиента. Все ключевые действия собраны в одном месте.
-                  </Typography>
-                </Box>
-                <Stack spacing={1.5}>
-                  {[
-                    'Быстрый вход и рабочее пространство с актуальными данными',
-                    'Статусы, комментарии и история в одной карточке заказа',
-                    'Понятные формы и аккуратные подсказки для обычных пользователей',
-                  ].map((item) => (
-                    <Stack key={item} direction="row" spacing={1.5} alignItems="center">
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: '50%',
-                          bgcolor: '#fff',
-                          flexShrink: 0,
-                        }}
-                      />
-                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
-                        {item}
-                      </Typography>
-                    </Stack>
-                  ))}
+            />
+            <Stack spacing={1.5} sx={{ position: 'relative', alignItems: 'center' }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.88)' }}>
+                ПК «Импульс»
+              </Typography>
+              <Typography variant="h4" sx={{ maxWidth: 500 }}>
+                Управление заказами без лишнего шума и путаницы
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.9)', maxWidth: 520 }}>
+                Понятный интерфейс для администратора, менеджера, исполнителя и клиента.
+              </Typography>
+            </Stack>
+          </Box>
+
+          <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+            <Stack spacing={2.5} sx={{ alignItems: 'center', textAlign: 'center' }}>
+              <Box sx={{ width: '100%' }}>
+                <Typography variant="h5">Войти в систему</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
+                  Используйте рабочий логин и пароль, чтобы открыть нужное рабочее место.
+                </Typography>
+              </Box>
+
+              <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+                <Stack spacing={2.2}>
+                  {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+                  <TextField
+                    label="Логин или email"
+                    value={form.login}
+                    onChange={(event) => setForm((previous) => ({ ...previous, login: event.target.value }))}
+                    autoComplete="username"
+                  />
+                  <TextField
+                    label="Пароль"
+                    type="password"
+                    value={form.password}
+                    onChange={(event) => setForm((previous) => ({ ...previous, password: event.target.value }))}
+                    autoComplete="current-password"
+                  />
+                  <Button type="submit" variant="contained" size="large" disabled={loading}>
+                    {loading ? 'Выполняется вход...' : 'Войти'}
+                  </Button>
                 </Stack>
-              </Stack>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ p: { xs: 3, md: 5 } }}>
-                <Stack spacing={3}>
-                  <Box>
-                    <Typography variant="h5">Войти в систему</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
-                      Используйте рабочий логин и пароль, чтобы открыть нужное рабочее место.
-                    </Typography>
-                  </Box>
-
-                  <Box component="form" onSubmit={handleSubmit}>
-                    <Stack spacing={2.2}>
-                      {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-                      <TextField
-                        label="Логин или email"
-                        value={form.login}
-                        onChange={(event) => setForm((previous) => ({ ...previous, login: event.target.value }))}
-                        autoComplete="username"
-                      />
-                      <TextField
-                        label="Пароль"
-                        type="password"
-                        value={form.password}
-                        onChange={(event) => setForm((previous) => ({ ...previous, password: event.target.value }))}
-                        autoComplete="current-password"
-                      />
-                      <Button type="submit" variant="contained" size="large" disabled={loading}>
-                        {loading ? 'Выполняется вход...' : 'Войти'}
-                      </Button>
-                    </Stack>
-                  </Box>
-
-                  <Divider />
-
-                  <Typography variant="body2" color="text.secondary">
-                    Если соединение с сервером временно недоступно, на экране появится сообщение с текстом ошибки от API.
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
       </Container>
 
       <Snackbar
