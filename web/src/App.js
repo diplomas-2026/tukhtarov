@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   AppBar,
+  Avatar,
   Box,
   Button,
   Card,
@@ -10,27 +11,36 @@ import {
   CircularProgress,
   Container,
   CssBaseline,
+  Divider,
   Grid,
+  InputAdornment,
+  LinearProgress,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   MenuItem,
   Paper,
   Snackbar,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   ThemeProvider,
   Toolbar,
   Typography,
+  alpha,
   createTheme,
 } from '@mui/material';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded';
-import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
-import FactoryRoundedIcon from '@mui/icons-material/FactoryRounded';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import CommentRoundedIcon from '@mui/icons-material/CommentRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import {
   addOrderComment,
   changeOrderStatus,
@@ -47,17 +57,110 @@ import {
 
 const theme = createTheme({
   palette: {
-    primary: { main: '#0f4c81' },
-    secondary: { main: '#b45309' },
-    background: { default: '#f4efe7', paper: '#fffaf3' },
+    primary: { main: '#1a73e8' },
+    secondary: { main: '#0f9d58' },
+    error: { main: '#d93025' },
+    warning: { main: '#f29900' },
+    info: { main: '#5f6368' },
+    background: {
+      default: '#f6f8fc',
+      paper: '#ffffff',
+    },
+    text: {
+      primary: '#202124',
+      secondary: '#5f6368',
+    },
   },
-  shape: { borderRadius: 18 },
+  shape: {
+    borderRadius: 20,
+  },
   typography: {
-    fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
-    h4: { fontWeight: 800 },
-    h5: { fontWeight: 700 },
+    fontFamily: '"Roboto", "Arial", sans-serif',
+    h4: { fontWeight: 700, letterSpacing: '-0.02em' },
+    h5: { fontWeight: 700, letterSpacing: '-0.02em' },
     h6: { fontWeight: 700 },
-    button: { textTransform: 'none', fontWeight: 700 },
+    subtitle1: { fontWeight: 600 },
+    button: { textTransform: 'none', fontWeight: 600 },
+  },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundImage:
+            'radial-gradient(circle at top left, rgba(26,115,232,0.08), transparent 34%), radial-gradient(circle at top right, rgba(15,157,88,0.08), transparent 28%), linear-gradient(180deg, #f8fbff 0%, #f6f8fc 100%)',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 999,
+          boxShadow: 'none',
+          paddingInline: 18,
+        },
+        contained: {
+          boxShadow: '0 1px 2px rgba(60,64,67,0.18), 0 1px 3px rgba(60,64,67,0.12)',
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          border: '1px solid rgba(95,99,104,0.14)',
+          boxShadow: '0 8px 24px rgba(60,64,67,0.08)',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          backgroundColor: '#fff',
+        },
+      },
+    },
+    MuiTextField: {
+      defaultProps: {
+        variant: 'outlined',
+        fullWidth: true,
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 999,
+        },
+      },
+    },
+    MuiTabs: {
+      styleOverrides: {
+        root: {
+          minHeight: 'auto',
+        },
+      },
+    },
+    MuiTab: {
+      styleOverrides: {
+        root: {
+          minHeight: 48,
+          alignItems: 'flex-start',
+          justifyContent: 'flex-start',
+          textTransform: 'none',
+          borderRadius: 14,
+          paddingLeft: 14,
+          paddingRight: 14,
+          marginBottom: 6,
+          fontWeight: 600,
+        },
+      },
+    },
   },
 });
 
@@ -66,24 +169,55 @@ const ROLE_TABS = {
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'orders', label: 'Заказы', icon: <AssignmentRoundedIcon fontSize="small" /> },
     { value: 'users', label: 'Пользователи', icon: <GroupRoundedIcon fontSize="small" /> },
-    { value: 'clients', label: 'Клиенты', icon: <FactoryRoundedIcon fontSize="small" /> },
-    { value: 'statuses', label: 'Статусы', icon: <CommentRoundedIcon fontSize="small" /> },
+    { value: 'clients', label: 'Клиенты', icon: <BusinessRoundedIcon fontSize="small" /> },
+    { value: 'statuses', label: 'Статусы', icon: <PendingActionsRoundedIcon fontSize="small" /> },
   ],
   MANAGER: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'orders', label: 'Заказы', icon: <AssignmentRoundedIcon fontSize="small" /> },
     { value: 'create-order', label: 'Новый заказ', icon: <AddRoundedIcon fontSize="small" /> },
-    { value: 'clients', label: 'Клиенты', icon: <FactoryRoundedIcon fontSize="small" /> },
+    { value: 'clients', label: 'Клиенты', icon: <BusinessRoundedIcon fontSize="small" /> },
   ],
   EXECUTOR: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'tasks', label: 'Мои задачи', icon: <AssignmentRoundedIcon fontSize="small" /> },
-    { value: 'statuses', label: 'Статусы', icon: <CommentRoundedIcon fontSize="small" /> },
+    { value: 'statuses', label: 'Статусы', icon: <PendingActionsRoundedIcon fontSize="small" /> },
   ],
   CLIENT: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'orders', label: 'Мои заказы', icon: <AssignmentRoundedIcon fontSize="small" /> },
   ],
+};
+
+const TAB_TITLES = {
+  dashboard: {
+    title: 'Обзор',
+    subtitle: 'Ключевые показатели, которые помогают быстро понять ситуацию по заказам.',
+  },
+  orders: {
+    title: 'Заказы',
+    subtitle: 'Список заказов с быстрым доступом к карточке, статусу и комментариям.',
+  },
+  tasks: {
+    title: 'Мои задачи',
+    subtitle: 'Заказы, которые требуют внимания исполнителя прямо сейчас.',
+  },
+  'create-order': {
+    title: 'Новый заказ',
+    subtitle: 'Короткая карточка для запуска нового производственного заказа.',
+  },
+  users: {
+    title: 'Пользователи',
+    subtitle: 'Учетные записи сотрудников и их роли в системе.',
+  },
+  clients: {
+    title: 'Клиенты',
+    subtitle: 'Компании-заказчики и их контактные данные.',
+  },
+  statuses: {
+    title: 'Статусы и роли',
+    subtitle: 'Справочная информация по этапам и доступным действиям.',
+  },
 };
 
 const INTERNAL_STATUS_VALUES = new Set([
@@ -144,30 +278,37 @@ function getAllowedStatuses(statuses, role) {
   return statuses.filter((status) => INTERNAL_STATUS_VALUES.has(status.value));
 }
 
-function StatCard({ label, value, helper, accent }) {
+function StatCard({ label, value, helper, icon, accent = '#1a73e8' }) {
   return (
-    <Card sx={{ height: '100%', border: '1px solid rgba(15, 76, 129, 0.12)', background: 'linear-gradient(180deg, #ffffff 0%, #fff7eb 100%)' }}>
-      <CardContent>
-        <Typography variant="overline" color="text.secondary">
-          {label}
-        </Typography>
-        <Typography variant="h4" sx={{ mt: 0.5, color: accent || 'primary.main' }}>
-          {value}
-        </Typography>
-        {helper ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            {helper}
-          </Typography>
-        ) : null}
+    <Card sx={{ height: '100%', background: `linear-gradient(180deg, #fff 0%, ${alpha(accent, 0.04)} 100%)` }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack direction="row" spacing={2} alignItems="flex-start">
+          <Avatar sx={{ bgcolor: alpha(accent, 0.12), color: accent }}>
+            {icon}
+          </Avatar>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+              {label}
+            </Typography>
+            <Typography variant="h4" sx={{ mt: 0.5, color: accent, fontSize: '2rem' }}>
+              {value}
+            </Typography>
+            {helper ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
+                {helper}
+              </Typography>
+            ) : null}
+          </Box>
+        </Stack>
       </CardContent>
     </Card>
   );
 }
 
-function SectionCard({ title, subtitle, action, children }) {
+function SectionCard({ title, subtitle, action, children, sx }) {
   return (
-    <Card sx={{ border: '1px solid rgba(15, 76, 129, 0.12)' }}>
-      <CardContent>
+    <Card sx={{ ...sx }}>
+      <CardContent sx={{ p: 2.5 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
           <Box>
             <Typography variant="h6">{title}</Typography>
@@ -182,6 +323,26 @@ function SectionCard({ title, subtitle, action, children }) {
         {children}
       </CardContent>
     </Card>
+  );
+}
+
+function EmptyState({ title, subtitle }) {
+  return (
+    <Box
+      sx={{
+        py: 6,
+        px: 2,
+        textAlign: 'center',
+        border: '1px dashed rgba(95,99,104,0.3)',
+        borderRadius: 4,
+        backgroundColor: 'rgba(26,115,232,0.03)',
+      }}
+    >
+      <Typography variant="h6">{title}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+        {subtitle}
+      </Typography>
+    </Box>
   );
 }
 
@@ -207,52 +368,133 @@ function LoginScreen({ onSuccess, snackbar, setSnackbar }) {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 10 }}>
-      <Card sx={{ border: '1px solid rgba(15, 76, 129, 0.12)', boxShadow: '0 20px 60px rgba(15, 76, 129, 0.12)' }}>
-        <CardContent sx={{ p: 4 }}>
-          <Stack spacing={3}>
-            <Box>
-              <Typography variant="h4">ПК «Импульс»</Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                Вход в систему управления статусами заказов
-              </Typography>
-            </Box>
-            <Box component="form" onSubmit={handleSubmit}>
-              <Stack spacing={2}>
-                {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-                <TextField
-                  label="Логин или email"
-                  value={form.login}
-                  onChange={(event) => setForm((previous) => ({ ...previous, login: event.target.value }))}
-                  autoComplete="username"
-                  fullWidth
-                />
-                <TextField
-                  label="Пароль"
-                  type="password"
-                  value={form.password}
-                  onChange={(event) => setForm((previous) => ({ ...previous, password: event.target.value }))}
-                  autoComplete="current-password"
-                  fullWidth
-                />
-                <Button type="submit" variant="contained" size="large" disabled={loading}>
-                  {loading ? 'Входим...' : 'Войти'}
-                </Button>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        px: 2,
+        py: 4,
+      }}
+    >
+      <Container maxWidth="lg">
+        <Grid container spacing={3} alignItems="stretch">
+          <Grid item xs={12} md={6}>
+            <Paper
+              sx={{
+                height: '100%',
+                p: { xs: 3, md: 5 },
+                color: '#fff',
+                background:
+                  'linear-gradient(145deg, rgba(26,115,232,0.96) 0%, rgba(15,157,88,0.92) 100%)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 'auto -40px -60px auto',
+                  width: 220,
+                  height: 220,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.12)',
+                  filter: 'blur(10px)',
+                }}
+              />
+              <Stack spacing={3} sx={{ position: 'relative' }}>
+                <Box>
+                  <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.85)' }}>
+                    ПК «Импульс»
+                  </Typography>
+                  <Typography variant="h4" sx={{ mt: 1, maxWidth: 520 }}>
+                    Управление заказами без лишнего шума и путаницы
+                  </Typography>
+                  <Typography variant="body1" sx={{ mt: 1.5, color: 'rgba(255,255,255,0.88)', maxWidth: 500 }}>
+                    Понятный интерфейс для администратора, менеджера, исполнителя и клиента. Все ключевые действия собраны в одном месте.
+                  </Typography>
+                </Box>
+                <Stack spacing={1.5}>
+                  {[
+                    'Быстрый вход и рабочее пространство с актуальными данными',
+                    'Статусы, комментарии и история в одной карточке заказа',
+                    'Понятные формы и аккуратные подсказки для обычных пользователей',
+                  ].map((item) => (
+                    <Stack key={item} direction="row" spacing={1.5} alignItems="center">
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          bgcolor: '#fff',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.92)' }}>
+                        {item}
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Stack>
               </Stack>
-            </Box>
-          </Stack>
-        </CardContent>
-      </Card>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ p: { xs: 3, md: 5 } }}>
+                <Stack spacing={3}>
+                  <Box>
+                    <Typography variant="h5">Войти в систему</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.8 }}>
+                      Используйте рабочий логин и пароль, чтобы открыть нужное рабочее место.
+                    </Typography>
+                  </Box>
+
+                  <Box component="form" onSubmit={handleSubmit}>
+                    <Stack spacing={2.2}>
+                      {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+                      <TextField
+                        label="Логин или email"
+                        value={form.login}
+                        onChange={(event) => setForm((previous) => ({ ...previous, login: event.target.value }))}
+                        autoComplete="username"
+                      />
+                      <TextField
+                        label="Пароль"
+                        type="password"
+                        value={form.password}
+                        onChange={(event) => setForm((previous) => ({ ...previous, password: event.target.value }))}
+                        autoComplete="current-password"
+                      />
+                      <Button type="submit" variant="contained" size="large" disabled={loading}>
+                        {loading ? 'Выполняется вход...' : 'Войти'}
+                      </Button>
+                    </Stack>
+                  </Box>
+
+                  <Divider />
+
+                  <Typography variant="body2" color="text.secondary">
+                    Если соединение с сервером временно недоступно, на экране появится сообщение с текстом ошибки от API.
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Container>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={5000}
         onClose={() => setSnackbar((previous) => ({ ...previous, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity} variant="filled">
+        <Alert severity={snackbar.severity} variant="filled" sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 }
 
@@ -270,6 +512,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [tab, setTab] = useState(ROLE_TABS[auth.role]?.[0]?.value || 'dashboard');
+  const [orderSearch, setOrderSearch] = useState('');
   const [createOrderForm, setCreateOrderForm] = useState({
     orderNumber: 'IMP-2026-004',
     title: '',
@@ -300,33 +543,68 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     city: '',
   });
   const [statusForm, setStatusForm] = useState({ status: '', comment: '' });
-  const [commentForm, setCommentForm] = useState({ message: '', visibleToClient: auth.role === 'CLIENT' });
+  const [commentForm, setCommentForm] = useState({
+    message: '',
+    visibleToClient: auth.role === 'CLIENT',
+  });
   const [actionLoading, setActionLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [apiErrorSeverity, setApiErrorSeverity] = useState('error');
 
   const tabs = ROLE_TABS[auth.role] || ROLE_TABS.CLIENT;
   const allowedStatuses = useMemo(() => getAllowedStatuses(data.statuses, auth.role), [data.statuses, auth.role]);
-  const selectedOrder = orderDetails[selectedOrderId] || data.orders.find((order) => order.id === selectedOrderId) || null;
+
+  useEffect(() => {
+    const defaultTab = ROLE_TABS[auth.role]?.[0]?.value || 'dashboard';
+    setTab(defaultTab);
+  }, [auth.role]);
+
+  const filteredOrders = useMemo(() => {
+    const query = orderSearch.trim().toLowerCase();
+    if (!query) {
+      return data.orders;
+    }
+    return data.orders.filter((order) => {
+      const haystack = [
+        order.orderNumber,
+        order.title,
+        order.clientName,
+        order.statusLabel,
+        order.priorityLabel,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [data.orders, orderSearch]);
+
+  const selectedOrder =
+    orderDetails[selectedOrderId] || data.orders.find((order) => order.id === selectedOrderId) || null;
 
   const refreshWorkspace = async (preferOrderId = selectedOrderId) => {
     setApiError('');
     const workspace = await loadWorkspaceData();
     setData(workspace);
-    if (workspace.orders.length && !workspace.orders.some((order) => order.id === selectedOrderId)) {
-      setSelectedOrderId(workspace.orders[0].id);
-    }
-    if (preferOrderId) {
+
+    const fallbackOrderId = workspace.orders[0]?.id || null;
+    const nextSelectedOrderId =
+      preferOrderId && workspace.orders.some((order) => order.id === preferOrderId)
+        ? preferOrderId
+        : fallbackOrderId;
+
+    setSelectedOrderId(nextSelectedOrderId);
+
+    if (nextSelectedOrderId) {
       try {
-        const detail = await loadOrderDetails(preferOrderId);
-        setOrderDetails((previous) => ({ ...previous, [preferOrderId]: detail }));
+        const detail = await loadOrderDetails(nextSelectedOrderId);
+        setOrderDetails((previous) => ({ ...previous, [nextSelectedOrderId]: detail }));
       } catch (error) {
-        // Keep the workspace usable even if one detail call fails.
+        // Keep the workspace usable if one detail request fails.
       }
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -346,7 +624,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     return () => {
       active = false;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!selectedOrderId || orderDetails[selectedOrderId]) {
@@ -361,11 +640,10 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         });
       })
       .catch(() => {
-        // ignore, workspace list is still available
+        // The list view is still available even if detail loading fails.
       });
   }, [selectedOrderId, orderDetails]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (selectedOrder) {
       setStatusForm((previous) => ({
@@ -549,89 +827,218 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       await handleRefresh();
       showMessage('Комментарий добавлен');
     } catch (error) {
-      showMessage(error.message, 'error');
+      handleApiError(error);
     } finally {
       setActionLoading(false);
     }
   };
 
+  const dashboard = data.dashboard || {
+    totalOrders: data.orders.length,
+    activeOrders: data.orders.filter((order) => !['CLOSED', 'CANCELLED', 'SHIPPED'].includes(order.status)).length,
+    overdueOrders: data.orders.filter((order) => order.overdue).length,
+    completedOrders: data.orders.filter((order) => ['CLOSED', 'SHIPPED'].includes(order.status)).length,
+    statusCounts: {},
+    priorityCounts: {},
+    recentOrders: data.orders.slice(0, 4),
+  };
+
+  const pageMeta = TAB_TITLES[tab] || TAB_TITLES.dashboard;
+
   const renderDashboard = () => {
-    const dashboard = data.dashboard || {
-      totalOrders: data.orders.length,
-      activeOrders: data.orders.filter((order) => !['CLOSED', 'CANCELLED', 'SHIPPED'].includes(order.status)).length,
-      overdueOrders: data.orders.filter((order) => order.overdue).length,
-      completedOrders: data.orders.filter((order) => ['CLOSED', 'SHIPPED'].includes(order.status)).length,
-      statusCounts: {},
-      priorityCounts: {},
-      recentOrders: data.orders.slice(0, 4),
-    };
+    const statusEntries = Object.entries(dashboard.statusCounts || {});
+    const priorityEntries = Object.entries(dashboard.priorityCounts || {});
+    const recentOrders = dashboard.recentOrders || [];
 
     return (
       <Stack spacing={3}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={3}>
-            <StatCard label="Всего заказов" value={dashboard.totalOrders} helper="За период по текущему пользователю" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <StatCard label="Активные" value={dashboard.activeOrders} helper="Находятся в работе" accent="#0f766e" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <StatCard label="Просрочки" value={dashboard.overdueOrders} helper="Требуют внимания" accent="#b91c1c" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <StatCard label="Завершённые" value={dashboard.completedOrders} helper="Закрыты или отгружены" accent="#15803d" />
-          </Grid>
-        </Grid>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <SectionCard title="Текущие статусы" subtitle="Распределение заказов по стадиям">
-              <Stack spacing={1.2}>
-                {Object.entries(dashboard.statusCounts || {}).map(([label, count]) => (
-                  <Stack key={label} direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="body2">{label}</Typography>
-                    <Chip label={count} size="small" color="primary" variant="outlined" />
-                  </Stack>
-                ))}
-                {!Object.keys(dashboard.statusCounts || {}).length ? <Typography color="text.secondary">Нет данных.</Typography> : null}
-              </Stack>
-            </SectionCard>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <SectionCard title="Приоритеты" subtitle="Где нужен ускоренный фокус">
-              <Stack spacing={1.2}>
-                {Object.entries(dashboard.priorityCounts || {}).map(([label, count]) => (
-                  <Stack key={label} direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="body2">{label}</Typography>
-                    <Chip label={count} size="small" color="secondary" variant="outlined" />
-                  </Stack>
-                ))}
-                {!Object.keys(dashboard.priorityCounts || {}).length ? <Typography color="text.secondary">Нет данных.</Typography> : null}
-              </Stack>
-            </SectionCard>
-          </Grid>
-        </Grid>
-
-        <SectionCard title="Последние заказы" subtitle="Краткая картина по свежим карточкам">
-          <Stack spacing={1.5}>
-            {(dashboard.recentOrders || []).map((order) => (
-              <Paper key={order.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      {order.orderNumber} · {order.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {order.clientName}
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
-                    <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
-                    <Chip label={order.priorityLabel} color={getPriorityColor(order.priority)} size="small" variant="outlined" />
-                  </Stack>
+        <Card
+          sx={{
+            background:
+              'linear-gradient(135deg, rgba(26,115,232,0.96) 0%, rgba(26,115,232,0.82) 45%, rgba(15,157,88,0.84) 100%)',
+            color: '#fff',
+          }}
+        >
+          <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+            <Grid container spacing={3} alignItems="center">
+              <Grid item xs={12} md={8}>
+                <Stack spacing={1.5}>
+                  <Chip
+                    label={auth.roleLabel}
+                    sx={{
+                      alignSelf: 'flex-start',
+                      bgcolor: 'rgba(255,255,255,0.16)',
+                      color: '#fff',
+                      fontWeight: 600,
+                    }}
+                  />
+                  <Typography variant="h4">
+                    {auth.fullName}, рабочее пространство уже готово к работе
+                  </Typography>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.9)', maxWidth: 720 }}>
+                    Здесь видно главное: сколько заказов в работе, где есть задержки и какие карточки требуют следующего шага.
+                  </Typography>
                 </Stack>
-              </Paper>
-            ))}
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Stack spacing={1.5}>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleRefresh}
+                    startIcon={<RefreshRoundedIcon />}
+                    sx={{ bgcolor: '#fff', color: '#1a73e8', '&:hover': { bgcolor: '#f8fbff' } }}
+                  >
+                    Обновить данные
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setTab(tabs[1]?.value || 'orders')}
+                    sx={{
+                      borderColor: 'rgba(255,255,255,0.4)',
+                      color: '#fff',
+                      '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.08)' },
+                    }}
+                  >
+                    Перейти к заказам
+                  </Button>
+                </Stack>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Grid container spacing={2.2}>
+          <Grid item xs={12} sm={6} xl={3}>
+            <StatCard
+              label="Всего заказов"
+              value={dashboard.totalOrders}
+              helper="Все карточки, доступные текущему профилю."
+              icon={<AssignmentRoundedIcon />}
+              accent="#1a73e8"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} xl={3}>
+            <StatCard
+              label="Активные"
+              value={dashboard.activeOrders}
+              helper="Заказы, которые сейчас в работе."
+              icon={<PendingActionsRoundedIcon />}
+              accent="#0f9d58"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} xl={3}>
+            <StatCard
+              label="Просрочки"
+              value={dashboard.overdueOrders}
+              helper="Нужны быстрые решения и контроль."
+              icon={<WarningAmberRoundedIcon />}
+              accent="#d93025"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} xl={3}>
+            <StatCard
+              label="Завершённые"
+              value={dashboard.completedOrders}
+              helper="Закрыты или отгружены."
+              icon={<CheckCircleRoundedIcon />}
+              accent="#188038"
+            />
+          </Grid>
+        </Grid>
+
+        <Grid container spacing={2.2}>
+          <Grid item xs={12} md={6}>
+            <SectionCard title="Статусы" subtitle="Распределение заказов по этапам производства">
+              <Stack spacing={1.5}>
+                {statusEntries.length ? (
+                  statusEntries.map(([label, count]) => (
+                    <Box key={label}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2">{label}</Typography>
+                        <Chip label={count} size="small" color="primary" variant="outlined" />
+                      </Stack>
+                      <LinearProgress
+                        variant="determinate"
+                        value={Math.min(100, Number(count) * 20)}
+                        sx={{ mt: 1, height: 8, borderRadius: 999, bgcolor: 'rgba(26,115,232,0.08)' }}
+                      />
+                    </Box>
+                  ))
+                ) : (
+                  <EmptyState title="Пока нет данных" subtitle="После загрузки заказов здесь появится распределение по статусам." />
+                )}
+              </Stack>
+            </SectionCard>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <SectionCard title="Приоритеты" subtitle="Карточки, которые стоит держать под рукой">
+              <Stack spacing={1.5}>
+                {priorityEntries.length ? (
+                  priorityEntries.map(([label, count]) => (
+                    <Box key={label}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2">{label}</Typography>
+                        <Chip label={count} size="small" color="secondary" variant="outlined" />
+                      </Stack>
+                      <LinearProgress
+                        variant="determinate"
+                        value={Math.min(100, Number(count) * 25)}
+                        sx={{ mt: 1, height: 8, borderRadius: 999, bgcolor: 'rgba(15,157,88,0.08)' }}
+                      />
+                    </Box>
+                  ))
+                ) : (
+                  <EmptyState title="Пока нет данных" subtitle="Здесь будет видно, где нужен срочный фокус." />
+                )}
+              </Stack>
+            </SectionCard>
+          </Grid>
+        </Grid>
+
+        <SectionCard title="Последние заказы" subtitle="Свежие карточки, которые чаще всего требуют внимания">
+          <Stack spacing={1.5}>
+            {recentOrders.length ? (
+              recentOrders.map((order) => (
+                <Paper
+                  key={order.id}
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 10px 30px rgba(60,64,67,0.12)',
+                    },
+                  }}
+                  onClick={() => setTab(tabs[1]?.value || 'orders')}
+                >
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    justifyContent="space-between"
+                  >
+                    <Box>
+                      <Typography variant="subtitle1">
+                        {order.orderNumber} · {order.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {order.clientName}
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+                      <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
+                      <Chip label={order.priorityLabel} color={getPriorityColor(order.priority)} size="small" variant="outlined" />
+                    </Stack>
+                  </Stack>
+                </Paper>
+              ))
+            ) : (
+              <EmptyState title="Нет заказов" subtitle="После загрузки данных здесь появится список последних карточек." />
+            )}
           </Stack>
         </SectionCard>
       </Stack>
@@ -639,46 +1046,57 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const renderOrderList = (list) => (
-    <Stack spacing={1.5}>
-      {list.map((order) => (
-        <Paper
-          key={order.id}
-          variant="outlined"
-          onClick={() => setSelectedOrderId(order.id)}
-          sx={{
-            p: 2,
-            cursor: 'pointer',
-            borderRadius: 3,
-            borderColor: order.id === selectedOrderId ? 'primary.main' : 'divider',
-            background: order.id === selectedOrderId ? 'rgba(15, 76, 129, 0.06)' : 'transparent',
-          }}
-        >
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={800}>
-                {order.orderNumber}
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 0.3 }}>
-                {order.title}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {order.clientName}
-              </Typography>
-            </Box>
-            <Stack spacing={1} alignItems="flex-end">
-              <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
-              <Chip label={order.priorityLabel} size="small" variant="outlined" color={getPriorityColor(order.priority)} />
-            </Stack>
-          </Stack>
-        </Paper>
-      ))}
-      {!list.length ? <Typography color="text.secondary">Заказы не найдены.</Typography> : null}
+    <Stack spacing={1.2}>
+      {list.length ? (
+        list.map((order) => {
+          const active = order.id === selectedOrderId;
+          return (
+            <Paper
+              key={order.id}
+              variant="outlined"
+              onClick={() => setSelectedOrderId(order.id)}
+              sx={{
+                p: 2,
+                cursor: 'pointer',
+                borderRadius: 3,
+                borderColor: active ? 'primary.main' : 'divider',
+                backgroundColor: active ? alpha(theme.palette.primary.main, 0.05) : '#fff',
+                transition: 'all 0.15s ease',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  boxShadow: '0 8px 22px rgba(60,64,67,0.10)',
+                },
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="subtitle1" noWrap>
+                    {order.orderNumber}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.25 }}>
+                    {order.title}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {order.clientName}
+                  </Typography>
+                </Box>
+                <Stack spacing={0.9} alignItems="flex-end">
+                  <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
+                  <Chip label={order.priorityLabel} size="small" variant="outlined" color={getPriorityColor(order.priority)} />
+                </Stack>
+              </Stack>
+            </Paper>
+          );
+        })
+      ) : (
+        <EmptyState title="Ничего не найдено" subtitle="Попробуйте изменить запрос поиска или выберите другую вкладку." />
+      )}
     </Stack>
   );
 
   const renderOrderDetail = () => {
     if (!selectedOrder) {
-      return <Typography color="text.secondary">Выберите заказ, чтобы увидеть детали.</Typography>;
+      return <EmptyState title="Выберите заказ" subtitle="Слева откройте карточку, чтобы увидеть детали, историю и комментарии." />;
     }
 
     const detail = orderDetails[selectedOrder.id] || selectedOrder;
@@ -689,7 +1107,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           title={`${detail.orderNumber} · ${detail.title}`}
           subtitle={detail.description}
           action={
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
               <Chip label={detail.statusLabel} color={getStatusColor(detail.status)} />
               <Chip label={detail.priorityLabel} color={getPriorityColor(detail.priority)} variant="outlined" />
             </Stack>
@@ -700,9 +1118,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
               <Typography variant="overline" color="text.secondary">
                 Клиент
               </Typography>
-              <Typography variant="body1" fontWeight={700}>
-                {detail.clientCompany?.name}
-              </Typography>
+              <Typography variant="subtitle1">{detail.clientCompany?.name}</Typography>
               <Typography variant="body2" color="text.secondary">
                 {detail.clientCompany?.contactPerson}
               </Typography>
@@ -711,9 +1127,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
               <Typography variant="overline" color="text.secondary">
                 Менеджер
               </Typography>
-              <Typography variant="body1" fontWeight={700}>
-                {detail.manager?.fullName}
-              </Typography>
+              <Typography variant="subtitle1">{detail.manager?.fullName}</Typography>
               <Typography variant="body2" color="text.secondary">
                 {detail.manager?.phone}
               </Typography>
@@ -722,56 +1136,45 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
               <Typography variant="overline" color="text.secondary">
                 Исполнитель
               </Typography>
-              <Typography variant="body1" fontWeight={700}>
-                {detail.executor?.fullName}
-              </Typography>
+              <Typography variant="subtitle1">{detail.executor?.fullName}</Typography>
               <Typography variant="body2" color="text.secondary">
                 {detail.executor?.phone}
               </Typography>
             </Grid>
-            <Grid item xs={12} md={3}>
+            <Grid item xs={6} md={3}>
               <Typography variant="overline" color="text.secondary">
                 Создан
               </Typography>
-              <Typography variant="body1" fontWeight={700}>
-                {formatDate(detail.createdAt)}
-              </Typography>
+              <Typography variant="subtitle1">{formatDate(detail.createdAt)}</Typography>
             </Grid>
-            <Grid item xs={12} md={3}>
+            <Grid item xs={6} md={3}>
               <Typography variant="overline" color="text.secondary">
                 План
               </Typography>
-              <Typography variant="body1" fontWeight={700}>
-                {formatDate(detail.plannedDate)}
-              </Typography>
+              <Typography variant="subtitle1">{formatDate(detail.plannedDate)}</Typography>
             </Grid>
-            <Grid item xs={12} md={3}>
+            <Grid item xs={6} md={3}>
               <Typography variant="overline" color="text.secondary">
                 Дедлайн
               </Typography>
-              <Typography variant="body1" fontWeight={700}>
-                {formatDate(detail.dueDate)}
-              </Typography>
+              <Typography variant="subtitle1">{formatDate(detail.dueDate)}</Typography>
             </Grid>
-            <Grid item xs={12} md={3}>
+            <Grid item xs={6} md={3}>
               <Typography variant="overline" color="text.secondary">
                 Закрыт
               </Typography>
-              <Typography variant="body1" fontWeight={700}>
-                {formatDate(detail.completedAt)}
-              </Typography>
+              <Typography variant="subtitle1">{formatDate(detail.completedAt)}</Typography>
             </Grid>
           </Grid>
         </SectionCard>
 
         {auth.role !== 'CLIENT' ? (
-          <SectionCard title="Сменить статус" subtitle={`Эта форма доступна роли ${auth.roleLabel}`}>
+          <SectionCard title="Сменить статус" subtitle={`Доступно для роли ${auth.roleLabel}`}>
             <Box component="form" onSubmit={handleChangeStatus}>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
                   <TextField
                     select
-                    fullWidth
                     label="Новый статус"
                     value={statusForm.status}
                     onChange={(event) => setStatusForm((previous) => ({ ...previous, status: event.target.value }))}
@@ -785,10 +1188,10 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                 </Grid>
                 <Grid item xs={12} md={8}>
                   <TextField
-                    fullWidth
                     label="Комментарий к смене статуса"
                     value={statusForm.comment}
                     onChange={(event) => setStatusForm((previous) => ({ ...previous, comment: event.target.value }))}
+                    placeholder="Например: материалы получены, можно двигаться дальше"
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -801,31 +1204,31 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           </SectionCard>
         ) : null}
 
-        <SectionCard title="Комментарий" subtitle="Клиент и сотрудники могут писать комментарии по заказу">
+        <SectionCard title="Комментарий" subtitle="Добавьте сообщение к заказу, чтобы оно попало в историю">
           <Box component="form" onSubmit={handleAddComment}>
-            <Grid container spacing={2}>
+            <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={8}>
                 <TextField
-                  fullWidth
                   label="Текст комментария"
                   value={commentForm.message}
                   onChange={(event) => setCommentForm((previous) => ({ ...previous, message: event.target.value }))}
+                  placeholder="Например: согласовано с клиентом"
                 />
               </Grid>
               <Grid item xs={12} md={4}>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: 'flex-start', md: 'flex-end' }} flexWrap="wrap">
                   {auth.role !== 'CLIENT' ? (
                     <Button
                       variant={commentForm.visibleToClient ? 'contained' : 'outlined'}
                       onClick={() => setCommentForm((previous) => ({ ...previous, visibleToClient: !previous.visibleToClient }))}
                     >
-                      {commentForm.visibleToClient ? 'Виден клиенту' : 'Только внутр. комм.'}
+                      {commentForm.visibleToClient ? 'Виден клиенту' : 'Только для сотрудников'}
                     </Button>
                   ) : (
-                    <Chip label="Комментарий будет виден менеджеру" color="primary" />
+                    <Chip label="Комментарий увидит менеджер" color="primary" />
                   )}
                   <Button type="submit" variant="contained" disabled={actionLoading}>
-                    Добавить комментарий
+                    Добавить
                   </Button>
                 </Stack>
               </Grid>
@@ -833,53 +1236,57 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           </Box>
         </SectionCard>
 
-        <Grid container spacing={2}>
+        <Grid container spacing={2.2}>
           <Grid item xs={12} md={6}>
-            <SectionCard title="История статусов" subtitle="Путь заказа по этапам">
-              <Stack spacing={1.5}>
-                {detail.history?.map((item) => (
-                  <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                    <Stack spacing={0.5}>
-                      <Typography variant="subtitle2" fontWeight={800}>
-                        {item.statusLabel}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {item.comment}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {item.changedByName} · {item.changedByRole} · {formatDateTime(item.changedAt)}
-                      </Typography>
-                    </Stack>
-                  </Paper>
-                ))}
+            <SectionCard title="История статусов" subtitle="Последовательность изменений по заказу">
+              <Stack spacing={1.2}>
+                {detail.history?.length ? (
+                  detail.history.map((item) => (
+                    <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                      <Stack spacing={0.4}>
+                        <Typography variant="subtitle2">{item.statusLabel}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {item.comment}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.changedByName} · {item.changedByRole} · {formatDateTime(item.changedAt)}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+                  ))
+                ) : (
+                  <EmptyState title="История пока пуста" subtitle="После смены статуса здесь появятся записи." />
+                )}
               </Stack>
             </SectionCard>
           </Grid>
           <Grid item xs={12} md={6}>
-            <SectionCard title="Комментарии" subtitle="Внутренние и клиентские сообщения по заказу">
-              <Stack spacing={1.5}>
-                {detail.comments?.map((item) => (
-                  <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                      <Box>
-                        <Typography variant="subtitle2" fontWeight={800}>
-                          {item.authorName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.authorRole} · {formatDateTime(item.createdAt)}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={item.visibleToClient ? 'Виден клиенту' : 'Внутренний'}
-                        color={item.visibleToClient ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </Stack>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      {item.message}
-                    </Typography>
-                  </Paper>
-                ))}
+            <SectionCard title="Комментарии" subtitle="Внутренние и клиентские сообщения">
+              <Stack spacing={1.2}>
+                {detail.comments?.length ? (
+                  detail.comments.map((item) => (
+                    <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                        <Box>
+                          <Typography variant="subtitle2">{item.authorName}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.authorRole} · {formatDateTime(item.createdAt)}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={item.visibleToClient ? 'Виден клиенту' : 'Внутренний'}
+                          color={item.visibleToClient ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </Stack>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        {item.message}
+                      </Typography>
+                    </Paper>
+                  ))
+                ) : (
+                  <EmptyState title="Комментариев нет" subtitle="Добавьте первый комментарий, чтобы зафиксировать договоренности." />
+                )}
               </Stack>
             </SectionCard>
           </Grid>
@@ -889,13 +1296,27 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const renderOrdersWorkspace = (list) => (
-    <Grid container spacing={2}>
+    <Grid container spacing={2.2}>
       <Grid item xs={12} lg={4}>
         <SectionCard
           title={auth.role === 'EXECUTOR' ? 'Очередь задач' : auth.role === 'CLIENT' ? 'Мои заказы' : 'Список заказов'}
-          subtitle="Выберите карточку для подробного просмотра"
-          action={<Chip label={`${list.length} шт.`} size="small" variant="outlined" />}
+          subtitle="Откройте карточку, чтобы работать с деталями заказа"
+          action={<Chip label={`${list.length}`} size="small" variant="outlined" />}
         >
+          <TextField
+            label="Поиск"
+            value={orderSearch}
+            onChange={(event) => setOrderSearch(event.target.value)}
+            placeholder="Номер, название, статус"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ mb: 2 }}
+          />
           {renderOrderList(list)}
         </SectionCard>
       </Grid>
@@ -906,9 +1327,9 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   );
 
   const renderUsers = () => (
-    <Grid container spacing={2}>
+    <Grid container spacing={2.2}>
       <Grid item xs={12} md={5}>
-        <SectionCard title="Новый пользователь" subtitle="Администратор может добавлять сотрудников">
+        <SectionCard title="Новый пользователь" subtitle="Создание учетной записи сотрудника">
           <Box component="form" onSubmit={handleCreateUser}>
             <Stack spacing={2}>
               <TextField label="Логин" value={createUserForm.login} onChange={(event) => setCreateUserForm((previous) => ({ ...previous, login: event.target.value }))} />
@@ -939,31 +1360,33 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         </SectionCard>
       </Grid>
       <Grid item xs={12} md={7}>
-        <SectionCard title="Пользователи" subtitle="Список учетных записей в системе">
-          <Stack spacing={1.5}>
-            {data.users.map((user) => (
-              <Paper key={user.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight={800}>
-                      {user.fullName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {user.email} · {user.phone}
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
-                    <Chip label={user.roleLabel} color="primary" size="small" />
-                    <Chip label={user.active ? 'Активен' : 'Отключён'} color={user.active ? 'success' : 'default'} size="small" />
+        <SectionCard title="Пользователи" subtitle="Аккаунты сотрудников и их роли">
+          <Stack spacing={1.2}>
+            {data.users.length ? (
+              data.users.map((user) => (
+                <Paper key={user.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                    <Box>
+                      <Typography variant="subtitle1">{user.fullName}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {user.email} · {user.phone}
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+                      <Chip label={user.roleLabel} color="primary" size="small" />
+                      <Chip label={user.active ? 'Активен' : 'Отключён'} color={user.active ? 'success' : 'default'} size="small" />
+                    </Stack>
                   </Stack>
-                </Stack>
-                {user.clientCompanyName ? (
-                  <Typography variant="caption" color="text.secondary">
-                    Привязан к: {user.clientCompanyName}
-                  </Typography>
-                ) : null}
-              </Paper>
-            ))}
+                  {user.clientCompanyName ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Привязан к: {user.clientCompanyName}
+                    </Typography>
+                  ) : null}
+                </Paper>
+              ))
+            ) : (
+              <EmptyState title="Пользователей нет" subtitle="После создания сотрудников они появятся здесь." />
+            )}
           </Stack>
         </SectionCard>
       </Grid>
@@ -971,9 +1394,9 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   );
 
   const renderClients = () => (
-    <Grid container spacing={2}>
+    <Grid container spacing={2.2}>
       <Grid item xs={12} md={5}>
-        <SectionCard title="Новый клиент" subtitle="Добавление новой компании-заказчика">
+        <SectionCard title="Новый клиент" subtitle="Добавление компании-заказчика">
           <Box component="form" onSubmit={handleCreateClient}>
             <Stack spacing={2}>
               <TextField label="Название компании" value={createClientForm.name} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, name: event.target.value }))} />
@@ -991,25 +1414,27 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       </Grid>
       <Grid item xs={12} md={7}>
         <SectionCard title="Клиенты" subtitle="Компании, по которым ведутся заказы">
-          <Stack spacing={1.5}>
-            {data.clients.map((client) => (
-              <Paper key={client.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight={800}>
-                      {client.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {client.contactPerson} · {client.phone}
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
-                    <Chip label={`${client.orderCount} заказ(ов)`} size="small" variant="outlined" />
-                    <Chip label={client.city} size="small" color="secondary" />
+          <Stack spacing={1.2}>
+            {data.clients.length ? (
+              data.clients.map((client) => (
+                <Paper key={client.id} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                    <Box>
+                      <Typography variant="subtitle1">{client.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {client.contactPerson} · {client.phone}
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+                      <Chip label={`${client.orderCount} заказ(ов)`} size="small" variant="outlined" />
+                      <Chip label={client.city} size="small" color="secondary" />
+                    </Stack>
                   </Stack>
-                </Stack>
-              </Paper>
-            ))}
+                </Paper>
+              ))
+            ) : (
+              <EmptyState title="Клиентов нет" subtitle="Добавьте компанию, чтобы можно было создавать заказы." />
+            )}
           </Stack>
         </SectionCard>
       </Grid>
@@ -1017,14 +1442,14 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   );
 
   const renderStatuses = () => (
-    <Grid container spacing={2}>
+    <Grid container spacing={2.2}>
       <Grid item xs={12} md={6}>
-        <SectionCard title="Статусы заказа" subtitle="Логика производственного цикла">
+        <SectionCard title="Статусы заказа" subtitle="Производственный цикл и доступные этапы">
           <Stack spacing={1.2}>
             {data.statuses.map((status) => (
               <Paper key={status.value} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                  <Typography variant="body2" fontWeight={700}>
+                  <Typography variant="body2" fontWeight={600}>
                     {status.label}
                   </Typography>
                   <Chip label={status.value} size="small" variant="outlined" />
@@ -1035,13 +1460,11 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         </SectionCard>
       </Grid>
       <Grid item xs={12} md={6}>
-        <SectionCard title="Роль и действия" subtitle="Кто что может делать в системе">
-          <Stack spacing={2}>
+        <SectionCard title="Роли и действия" subtitle="Что доступно каждой роли в системе">
+          <Stack spacing={1.2}>
             {tabs.map((item) => (
               <Paper key={item.value} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                <Typography variant="subtitle2" fontWeight={800}>
-                  {item.label}
-                </Typography>
+                <Typography variant="subtitle2">{item.label}</Typography>
               </Paper>
             ))}
           </Stack>
@@ -1051,35 +1474,50 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   );
 
   return (
-    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(180deg, #f9f3ea 0%, #f4efe7 100%)' }}>
-      <AppBar position="sticky" elevation={0} sx={{ background: 'rgba(16, 45, 78, 0.92)', backdropFilter: 'blur(16px)' }}>
-        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-          <Box sx={{ flex: 1, minWidth: 260 }}>
-            <Typography variant="h6">ПК «Импульс» · Управление заказами</Typography>
-            <Typography variant="body2" sx={{ opacity: 0.82 }}>
-              {auth.fullName} · {auth.roleLabel}
-            </Typography>
-          </Box>
-          <Button color="inherit" startIcon={<RefreshRoundedIcon />} onClick={handleRefresh} sx={{ border: '1px solid rgba(255,255,255,0.18)' }}>
+    <Box sx={{ minHeight: '100vh' }}>
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          bgcolor: 'rgba(255,255,255,0.88)',
+          color: 'text.primary',
+          backdropFilter: 'blur(18px)',
+          borderBottom: '1px solid rgba(95,99,104,0.14)',
+        }}
+      >
+        <Toolbar sx={{ gap: 2, minHeight: 76 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+            <Avatar sx={{ bgcolor: 'primary.main', width: 42, height: 42 }}>И</Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h6" noWrap>
+                ПК «Импульс»
+              </Typography>
+              <Typography variant="body2" color="text.secondary" noWrap>
+                Управление заказами и статусами
+              </Typography>
+            </Box>
+          </Stack>
+          <Box sx={{ flex: 1 }} />
+          <Chip label={auth.roleLabel} color="primary" variant="outlined" sx={{ display: { xs: 'none', sm: 'inline-flex' } }} />
+          <Button startIcon={<RefreshRoundedIcon />} onClick={handleRefresh}>
             Обновить
           </Button>
-          <Button color="inherit" startIcon={<LogoutRoundedIcon />} onClick={onLogout} sx={{ border: '1px solid rgba(255,255,255,0.18)' }}>
+          <Button startIcon={<LogoutRoundedIcon />} onClick={onLogout}>
             Выйти
           </Button>
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth={false} sx={{ py: 3 }}>
-        <Grid container spacing={2}>
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Grid container spacing={2.2}>
           <Grid item xs={12} lg={3}>
             <Paper
               sx={{
-                p: 2,
-                position: 'sticky',
-                top: 88,
-                border: '1px solid rgba(15, 76, 129, 0.12)',
-                background: 'rgba(255,255,255,0.78)',
-                backdropFilter: 'blur(16px)',
+                p: 2.5,
+                position: { lg: 'sticky' },
+                top: 96,
+                bgcolor: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(18px)',
               }}
             >
               <Stack spacing={2}>
@@ -1087,55 +1525,75 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                   <Typography variant="overline" color="text.secondary">
                     Активный профиль
                   </Typography>
-                  <Typography variant="h6">{auth.fullName}</Typography>
-                  <Chip sx={{ mt: 1 }} label={auth.roleLabel} color="primary" size="small" />
+                  <Typography variant="h6" sx={{ mt: 0.5 }}>
+                    {auth.fullName}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {auth.roleLabel}
+                  </Typography>
+                  {auth.clientCompanyName ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {auth.clientCompanyName}
+                    </Typography>
+                  ) : null}
                 </Box>
-                <Box sx={{ height: 1, backgroundColor: 'rgba(15, 76, 129, 0.14)' }} />
-                <Tabs
-                  orientation="vertical"
-                  variant="scrollable"
-                  value={tab}
-                  onChange={(_, value) => setTab(value)}
-                  sx={{
-                    minHeight: 'auto',
-                    '.MuiTab-root': {
-                      alignItems: 'flex-start',
-                      textTransform: 'none',
-                      minHeight: 44,
-                      borderRadius: 2,
-                    },
-                  }}
-                >
-                  {tabs.map((item) => (
-                    <Tab key={item.value} value={item.value} iconPosition="start" icon={item.icon} label={item.label} />
-                  ))}
-                </Tabs>
+                <Divider />
+                <List disablePadding>
+                  {tabs.map((item) => {
+                    const active = tab === item.value;
+                    return (
+                      <ListItemButton
+                        key={item.value}
+                        selected={active}
+                        onClick={() => setTab(item.value)}
+                        sx={{
+                          mb: 0.75,
+                          borderRadius: 3,
+                          '&.Mui-selected': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.08),
+                          },
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36, color: active ? 'primary.main' : 'text.secondary' }}>
+                          {item.icon}
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={item.label}
+                          primaryTypographyProps={{
+                            fontWeight: active ? 700 : 600,
+                            color: active ? 'primary.main' : 'text.primary',
+                          }}
+                        />
+                      </ListItemButton>
+                    );
+                  })}
+                </List>
               </Stack>
             </Paper>
           </Grid>
 
-        <Grid item xs={12} lg={9}>
-          <Stack spacing={2}>
-            {apiError ? <Alert severity={apiErrorSeverity}>{apiError}</Alert> : null}
-            {loading ? (
-              <Card>
-                <CardContent>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <CircularProgress size={20} />
-                      <Typography>Загружаем данные...</Typography>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ) : null}
+          <Grid item xs={12} lg={9}>
+            <Stack spacing={2.2}>
+              <Paper sx={{ p: 2.5, bgcolor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(18px)' }}>
+                <Stack spacing={1}>
+                  <Typography variant="h5">{pageMeta.title}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {pageMeta.subtitle}
+                  </Typography>
+                </Stack>
+              </Paper>
+
+              {loading ? <LinearProgress sx={{ borderRadius: 999 }} /> : null}
+              {apiError ? <Alert severity={apiErrorSeverity}>{apiError}</Alert> : null}
+
               {tab === 'dashboard' ? renderDashboard() : null}
-              {tab === 'orders' || tab === 'tasks' ? renderOrdersWorkspace(data.orders) : null}
+              {tab === 'orders' || tab === 'tasks' ? renderOrdersWorkspace(auth.role === 'CLIENT' ? data.orders : filteredOrders) : null}
               {tab === 'create-order' ? (
-                <SectionCard title="Новый заказ" subtitle="Менеджер заполняет карточку и запускает процесс">
+                <SectionCard title="Новый заказ" subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту">
                   <Box component="form" onSubmit={handleCreateOrder}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} md={4}>
                         <TextField
-                          fullWidth
                           label="Номер заказа"
                           value={createOrderForm.orderNumber}
                           onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, orderNumber: event.target.value }))}
@@ -1143,7 +1601,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                       </Grid>
                       <Grid item xs={12} md={8}>
                         <TextField
-                          fullWidth
                           label="Название"
                           value={createOrderForm.title}
                           onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, title: event.target.value }))}
@@ -1151,16 +1608,15 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                       </Grid>
                       <Grid item xs={12}>
                         <TextField
-                          fullWidth
                           label="Описание"
                           value={createOrderForm.description}
                           onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
                           multiline
-                          minRows={3}
+                          minRows={4}
                         />
                       </Grid>
                       <Grid item xs={12} md={4}>
-                        <TextField select fullWidth label="Клиент" value={createOrderForm.clientCompanyId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
+                        <TextField select label="Клиент" value={createOrderForm.clientCompanyId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
                           {data.clients.map((client) => (
                             <MenuItem key={client.id} value={client.id}>
                               {client.name}
@@ -1169,7 +1625,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                         </TextField>
                       </Grid>
                       <Grid item xs={12} md={4}>
-                        <TextField select fullWidth label="Менеджер" value={createOrderForm.managerId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, managerId: event.target.value }))}>
+                        <TextField select label="Менеджер" value={createOrderForm.managerId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, managerId: event.target.value }))}>
                           {byRole(data.users, 'MANAGER').map((user) => (
                             <MenuItem key={user.id} value={user.id}>
                               {user.fullName}
@@ -1178,7 +1634,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                         </TextField>
                       </Grid>
                       <Grid item xs={12} md={4}>
-                        <TextField select fullWidth label="Исполнитель" value={createOrderForm.executorId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, executorId: event.target.value }))}>
+                        <TextField select label="Исполнитель" value={createOrderForm.executorId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, executorId: event.target.value }))}>
                           {byRole(data.users, 'EXECUTOR').map((user) => (
                             <MenuItem key={user.id} value={user.id}>
                               {user.fullName}
@@ -1187,7 +1643,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                         </TextField>
                       </Grid>
                       <Grid item xs={12} md={4}>
-                        <TextField select fullWidth label="Приоритет" value={createOrderForm.priority} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, priority: event.target.value }))}>
+                        <TextField select label="Приоритет" value={createOrderForm.priority} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, priority: event.target.value }))}>
                           {data.priorities.map((priority) => (
                             <MenuItem key={priority.value} value={priority.value}>
                               {priority.label}
@@ -1197,7 +1653,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                       </Grid>
                       <Grid item xs={12} md={4}>
                         <TextField
-                          fullWidth
                           type="date"
                           label="План"
                           InputLabelProps={{ shrink: true }}
@@ -1207,7 +1662,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                       </Grid>
                       <Grid item xs={12} md={4}>
                         <TextField
-                          fullWidth
                           type="date"
                           label="Дедлайн"
                           InputLabelProps={{ shrink: true }}
@@ -1286,7 +1740,7 @@ function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'linear-gradient(180deg, #f9f3ea 0%, #f4efe7 100%)' }}>
+        <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
           <CircularProgress />
         </Box>
       </ThemeProvider>
