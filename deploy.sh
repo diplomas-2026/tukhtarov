@@ -10,7 +10,7 @@ cd ./tukhtarov-api
 
 echo "Copy jar to release..."
 mkdir -p release
-cp ./build/libs/tukhtarov-api-0.0.1-SNAPSHOT.jar ./release/app.jar
+cp ./build/libs/tukhtarov-api-0.0.1-SNAPSHOT.jar ./release/tukhtarov-api-0.0.1-SNAPSHOT.jar
 
 cd ..
 
