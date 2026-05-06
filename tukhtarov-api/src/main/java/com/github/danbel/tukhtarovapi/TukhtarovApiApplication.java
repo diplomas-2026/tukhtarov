@@ -9,5 +9,4 @@ public class TukhtarovApiApplication {
     public static void main(String[] args) {
         SpringApplication.run(TukhtarovApiApplication.class, args);
     }
-
 }
