@@ -34,7 +34,6 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
@@ -186,7 +185,6 @@ const ROLE_TABS = {
   MANAGER: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'orders', label: 'Заказы', icon: <AssignmentRoundedIcon fontSize="small" /> },
-    { value: 'create-order', label: 'Новый заказ', icon: <AddRoundedIcon fontSize="small" /> },
     { value: 'clients', label: 'Клиенты', icon: <BusinessRoundedIcon fontSize="small" /> },
     { value: 'support-chat', label: 'Чаты клиентов', icon: <GroupRoundedIcon fontSize="small" /> },
   ],
@@ -211,13 +209,17 @@ const TAB_TITLES = {
     title: 'Заказы',
     subtitle: 'Список заказов с быстрым доступом к карточке, статусу и комментариям.',
   },
-  tasks: {
-    title: 'Мои задачи',
-    subtitle: 'Заказы, которые требуют внимания исполнителя прямо сейчас.',
-  },
   'create-order': {
     title: 'Новый заказ',
     subtitle: 'Короткая карточка для запуска нового производственного заказа.',
+  },
+  'create-client': {
+    title: 'Новый клиент',
+    subtitle: 'Отдельная страница для добавления новой компании-заказчика.',
+  },
+  tasks: {
+    title: 'Мои задачи',
+    subtitle: 'Заказы, которые требуют внимания исполнителя прямо сейчас.',
   },
   users: {
     title: 'Пользователи',
@@ -851,6 +853,7 @@ const ROUTE_PATHS = {
   orders: '/orders',
   tasks: '/tasks',
   'create-order': '/create-order',
+  'create-client': '/clients/new',
   users: '/users',
   clients: '/clients',
   statuses: '/statuses',
@@ -871,6 +874,9 @@ function getNavigationState(pathname) {
   }
   if (normalizedPath === '/create-order') {
     return { tab: 'create-order', orderId: null };
+  }
+  if (normalizedPath === '/clients/new') {
+    return { tab: 'create-client', orderId: null };
   }
   if (normalizedPath === '/users') {
     return { tab: 'users', orderId: null };
@@ -1946,6 +1952,18 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     setSelectedOrderId(null);
   };
 
+  const navigateToPath = (path) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+      const route = getNavigationState(path);
+      setTab(route.tab);
+      setSelectedOrderId(route.orderId);
+      if (!isDesktop) {
+        setDrawerOpen(false);
+      }
+    }
+  };
+
   const drawerContent = (
     <Box sx={{ p: 2.5, height: '100%', bgcolor: 'rgba(255,255,255,0.96)' }}>
       <Stack spacing={2}>
@@ -2471,7 +2489,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const renderOrdersWorkspace = (list) => {
-    if (auth.role === 'CLIENT') {
+    if (auth.role === 'CLIENT' || auth.role === 'MANAGER') {
       return (
         <Stack spacing={2.2}>
           <SectionCard
@@ -2694,68 +2712,100 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   );
 
   const renderClients = () => (
-    <Grid container spacing={2.2}>
-      <Grid item xs={12} md={5}>
-        <SectionCard title="Новый клиент" subtitle="Добавление компании-заказчика">
-          <Box component="form" onSubmit={handleCreateClient}>
-            <Stack spacing={2}>
-              <TextField label="Название компании" value={createClientForm.name} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, name: event.target.value }))} />
-              <TextField label="ИНН" value={createClientForm.inn} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, inn: event.target.value }))} />
-              <TextField label="Контактное лицо" value={createClientForm.contactPerson} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, contactPerson: event.target.value }))} />
-              <TextField label="Телефон" value={createClientForm.phone} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, phone: event.target.value }))} />
-              <TextField label="Email" value={createClientForm.email} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, email: event.target.value }))} />
-              <TextField label="Город" value={createClientForm.city} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, city: event.target.value }))} />
-              <Button type="submit" variant="contained" disabled={actionLoading}>
-                Создать клиента
-              </Button>
-            </Stack>
-          </Box>
-        </SectionCard>
-      </Grid>
-      <Grid item xs={12} md={7}>
-        <SectionCard title="Клиенты" subtitle="Компании, по которым ведутся заказы">
-          <ListControls
-            search={clientFilters.search}
-            onSearchChange={(value) => setClientFilters((previous) => ({ ...previous, search: value }))}
-            searchLabel="Поиск клиентов"
-            searchPlaceholder="Название, ИНН, контакт, город"
-            sortValue={clientFilters.sort}
-            onSortChange={(value) => setClientFilters((previous) => ({ ...previous, sort: value }))}
-            sortOptions={clientSortOptions}
-            filters={[
-              {
-                label: 'Город',
-                value: clientFilters.city,
-                onChange: (value) => setClientFilters((previous) => ({ ...previous, city: value })),
-                options: clientCityOptions,
-              },
-            ]}
-          />
-          <Stack spacing={1.2}>
-            {filteredClients.length ? (
-              filteredClients.map((client) => (
-                <Paper key={client.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                    <Box>
-                      <Typography variant="subtitle1">{client.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {client.contactPerson} · {client.phone}
-                      </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
-                      <Chip label={`${client.orderCount} заказ(ов)`} size="small" variant="outlined" />
-                      <Chip label={client.city} size="small" color="secondary" />
-                    </Stack>
-                  </Stack>
-                </Paper>
-              ))
-            ) : (
-              <EmptyState title="Клиентов нет" subtitle="Добавьте компанию, чтобы можно было создавать заказы." />
-            )}
-          </Stack>
-        </SectionCard>
-      </Grid>
-    </Grid>
+    <SectionCard
+      title="Клиенты"
+      subtitle="Компании, по которым ведутся заказы"
+      action={
+        <Stack direction="row" spacing={1}>
+          {(auth.role === 'ADMIN' || auth.role === 'MANAGER') ? (
+            <Button variant="contained" onClick={() => navigateToPath('/clients/new')}>
+              Новый клиент
+            </Button>
+          ) : null}
+          <Chip label={`${filteredClients.length}`} size="small" variant="outlined" />
+        </Stack>
+      }
+    >
+      <ListControls
+        search={clientFilters.search}
+        onSearchChange={(value) => setClientFilters((previous) => ({ ...previous, search: value }))}
+        searchLabel="Поиск клиентов"
+        searchPlaceholder="Название, ИНН, контакт, город"
+        sortValue={clientFilters.sort}
+        onSortChange={(value) => setClientFilters((previous) => ({ ...previous, sort: value }))}
+        sortOptions={clientSortOptions}
+        filters={[
+          {
+            label: 'Город',
+            value: clientFilters.city,
+            onChange: (value) => setClientFilters((previous) => ({ ...previous, city: value })),
+            options: clientCityOptions,
+          },
+        ]}
+      />
+      <Stack spacing={1.2}>
+        {filteredClients.length ? (
+          filteredClients.map((client) => (
+            <Paper key={client.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                <Box>
+                  <Typography variant="subtitle1">{client.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {client.contactPerson} · {client.phone}
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+                  <Chip label={`${client.orderCount} заказ(ов)`} size="small" variant="outlined" />
+                  <Chip label={client.city} size="small" color="secondary" />
+                </Stack>
+              </Stack>
+            </Paper>
+          ))
+        ) : (
+          <EmptyState title="Клиентов нет" subtitle="Добавьте компанию, чтобы можно было создавать заказы." />
+        )}
+      </Stack>
+    </SectionCard>
+  );
+
+  const renderCreateClientPage = () => (
+    <SectionCard
+      title="Новый клиент"
+      subtitle="Добавление компании-заказчика"
+      action={
+        <Button variant="outlined" onClick={() => navigateToPath('/clients')}>
+          Назад к клиентам
+        </Button>
+      }
+    >
+      <Box component="form" onSubmit={handleCreateClient}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <TextField label="Название компании" value={createClientForm.name} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, name: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField label="ИНН" value={createClientForm.inn} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, inn: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField label="Контактное лицо" value={createClientForm.contactPerson} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, contactPerson: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField label="Телефон" value={createClientForm.phone} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, phone: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField label="Email" value={createClientForm.email} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, email: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField label="Город" value={createClientForm.city} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, city: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12}>
+            <Button type="submit" variant="contained" disabled={actionLoading}>
+              Создать клиента
+            </Button>
+          </Grid>
+        </Grid>
+      </Box>
+    </SectionCard>
   );
 
   const renderStatuses = () => (
@@ -2884,6 +2934,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             {selectedOrderId ? renderOrderPage() : null}
             {!selectedOrderId && (tab === 'orders' || tab === 'tasks') ? renderOrdersWorkspace(filteredOrders) : null}
             {!selectedOrderId && tab === 'support-chat' ? renderSupportChatSection() : null}
+            {!selectedOrderId && tab === 'create-client' ? renderCreateClientPage() : null}
             {!selectedOrderId && tab === 'create-order' ? (
               <SectionCard title="Новый заказ" subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту">
                 <Box component="form" onSubmit={handleCreateOrder}>
