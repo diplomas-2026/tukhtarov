@@ -3012,7 +3012,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
             {tab === 'dashboard' ? renderDashboard() : null}
             {selectedOrderId ? renderOrderPage() : null}
-            {!selectedOrderId && (tab === 'orders' || tab === 'tasks') ? renderOrdersWorkspace(auth.role === 'CLIENT' ? data.orders : filteredOrders) : null}
+            {!selectedOrderId && (tab === 'orders' || tab === 'tasks') ? renderOrdersWorkspace(filteredOrders) : null}
             {!selectedOrderId && tab === 'support-chat' ? renderSupportChatSection() : null}
             {!selectedOrderId && tab === 'create-order' ? (
               <SectionCard title="Новый заказ" subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту">
