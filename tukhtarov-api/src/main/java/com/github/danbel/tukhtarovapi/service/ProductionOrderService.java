@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,29 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class ProductionOrderService {
+
+    private static final Set<OrderStatus> MANAGER_EDITABLE_STATUSES = Set.of(
+            OrderStatus.NEW,
+            OrderStatus.CLARIFICATION,
+            OrderStatus.DESIGN,
+            OrderStatus.WAITING_MATERIALS,
+            OrderStatus.IN_REVIEW,
+            OrderStatus.READY_FOR_SHIPMENT,
+            OrderStatus.SHIPPED,
+            OrderStatus.CLOSED,
+            OrderStatus.ON_HOLD,
+            OrderStatus.CANCELLED
+    );
+
+    private static final Set<OrderStatus> EXECUTOR_EDITABLE_STATUSES = Set.of(
+            OrderStatus.CUTTING,
+            OrderStatus.MACHINING,
+            OrderStatus.WELDING,
+            OrderStatus.HEAT_TREATMENT,
+            OrderStatus.COATING,
+            OrderStatus.ASSEMBLY,
+            OrderStatus.READY_FOR_CHECK
+    );
 
     private final ProductionOrderRepository productionOrderRepository;
     private final ClientCompanyRepository clientCompanyRepository;
@@ -136,6 +160,7 @@ public class ProductionOrderService {
         ProductionOrder order = productionOrderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Заказ не найден"));
         ensureAccess(order, currentUser);
+        ensureRoleCanChangeStatus(currentUser, request.status());
         order.setStatus(request.status());
         if (request.status() == OrderStatus.CLOSED || request.status() == OrderStatus.SHIPPED) {
             order.setCompletedAt(LocalDate.now());
@@ -238,6 +263,19 @@ public class ProductionOrderService {
             return;
         }
         throw new AccessDeniedException("Доступ к заказу запрещён");
+    }
+
+    private void ensureRoleCanChangeStatus(AuthenticatedUser currentUser, OrderStatus status) {
+        if (currentUser.role() == UserRole.ADMIN) {
+            return;
+        }
+        if (currentUser.role() == UserRole.MANAGER && MANAGER_EDITABLE_STATUSES.contains(status)) {
+            return;
+        }
+        if (currentUser.role() == UserRole.EXECUTOR && EXECUTOR_EDITABLE_STATUSES.contains(status)) {
+            return;
+        }
+        throw new AccessDeniedException("Этот статус доступен для изменения другой роли");
     }
 
     private ProductionOrder loadOrderForChat(Long id, AuthenticatedUser currentUser) {

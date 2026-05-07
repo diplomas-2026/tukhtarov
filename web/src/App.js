@@ -193,7 +193,6 @@ const ROLE_TABS = {
   EXECUTOR: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'tasks', label: 'Мои задачи', icon: <AssignmentRoundedIcon fontSize="small" /> },
-    { value: 'statuses', label: 'Статусы', icon: <PendingActionsRoundedIcon fontSize="small" /> },
   ],
   CLIENT: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
@@ -265,6 +264,29 @@ const INTERNAL_STATUS_VALUES = new Set([
   'CANCELLED',
 ]);
 
+const MANAGER_EDITABLE_STATUS_VALUES = new Set([
+  'NEW',
+  'CLARIFICATION',
+  'DESIGN',
+  'WAITING_MATERIALS',
+  'IN_REVIEW',
+  'READY_FOR_SHIPMENT',
+  'SHIPPED',
+  'CLOSED',
+  'ON_HOLD',
+  'CANCELLED',
+]);
+
+const EXECUTOR_EDITABLE_STATUS_VALUES = new Set([
+  'CUTTING',
+  'MACHINING',
+  'WELDING',
+  'HEAT_TREATMENT',
+  'COATING',
+  'ASSEMBLY',
+  'READY_FOR_CHECK',
+]);
+
 function formatDate(value) {
   if (!value) return '—';
   return new Date(value).toLocaleDateString('ru-RU');
@@ -307,10 +329,23 @@ function getAllowedStatuses(statuses, role) {
   if (role === 'CLIENT') {
     return [];
   }
+  if (role === 'MANAGER') {
+    return statuses.filter((status) => MANAGER_EDITABLE_STATUS_VALUES.has(status.value));
+  }
   if (role === 'EXECUTOR') {
-    return statuses.filter((status) => INTERNAL_STATUS_VALUES.has(status.value) && !['NEW', 'CLARIFICATION'].includes(status.value));
+    return statuses.filter((status) => EXECUTOR_EDITABLE_STATUS_VALUES.has(status.value));
   }
   return statuses.filter((status) => INTERNAL_STATUS_VALUES.has(status.value));
+}
+
+function getStatusOwnerRole(statusValue) {
+  if (MANAGER_EDITABLE_STATUS_VALUES.has(statusValue)) {
+    return 'MANAGER';
+  }
+  if (EXECUTOR_EDITABLE_STATUS_VALUES.has(statusValue)) {
+    return 'EXECUTOR';
+  }
+  return null;
 }
 
 function StatCard({ label, value, helper, icon, accent = '#1a73e8' }) {
@@ -1187,7 +1222,12 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     city: '',
   });
   const [statusForm, setStatusForm] = useState({ status: '', comment: '' });
-  const [assignmentForm, setAssignmentForm] = useState({ managerId: '', executorId: '' });
+  const [assignmentForm, setAssignmentForm] = useState({
+    managerId: '',
+    executorId: '',
+    plannedDate: '',
+    dueDate: '',
+  });
   const [actionLoading, setActionLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [apiErrorSeverity, setApiErrorSeverity] = useState('error');
@@ -1398,7 +1438,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     },
     [data.orders, data.statuses],
   );
-  const managerKanbanStatuses = useMemo(() => {
+  const kanbanStatuses = useMemo(() => {
     const sourceStatuses = data.statuses.length
       ? data.statuses
       : orderStatusOptions.filter((status) => status.value !== 'ALL');
@@ -1500,6 +1540,10 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const selectedOrderDetails = orderDetails[selectedOrderId] || null;
   const selectedOrder =
     selectedOrderDetails || data.orders.find((order) => order.id === selectedOrderId) || null;
+  const editableStatusValues = useMemo(
+    () => new Set(allowedStatuses.map((status) => status.value)),
+    [allowedStatuses],
+  );
   const selectedClient = useMemo(() => {
     if (!selectedClientId) {
       return null;
@@ -1528,6 +1572,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     Boolean(selectedOrderDetails) &&
     (auth.role === 'ADMIN'
       || (auth.role === 'MANAGER' && selectedOrderDetails.manager?.id === auth.id)
+      || (auth.role === 'EXECUTOR' && selectedOrderDetails.executor?.id === auth.id)
       || (auth.role === 'CLIENT' && selectedOrderDetails.clientCompany?.id === auth.clientCompanyId));
   const selectedSupportCompanyIdValue =
     auth.role === 'CLIENT' ? auth.clientCompanyId || '' : selectedSupportCompanyId;
@@ -1566,6 +1611,13 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     const syncNavigationState = () => {
       const currentUrl = `${window.location.pathname}${window.location.search}`;
       const route = getNavigationState(currentUrl);
+      if (auth.role === 'EXECUTOR' && route.tab === 'statuses') {
+        window.history.replaceState({}, '', '/tasks');
+        setTab('tasks');
+        setSelectedOrderId(null);
+        setSelectedClientId(null);
+        return;
+      }
       setTab(route.tab);
       setSelectedOrderId(route.orderId);
       setSelectedClientId(route.clientId);
@@ -1646,6 +1698,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       setAssignmentForm({
         managerId: selectedOrder.manager?.id ? String(selectedOrder.manager.id) : '',
         executorId: selectedOrder.executor?.id ? String(selectedOrder.executor.id) : '',
+        plannedDate: selectedOrder.plannedDate || '',
+        dueDate: selectedOrder.dueDate || '',
       });
     }
   }, [selectedOrder]);
@@ -2103,6 +2157,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       const detail = await updateOrder(selectedOrder.id, {
         managerId: assignmentForm.managerId ? Number(assignmentForm.managerId) : null,
         executorId: assignmentForm.executorId ? Number(assignmentForm.executorId) : null,
+        plannedDate: assignmentForm.plannedDate || null,
+        dueDate: assignmentForm.dueDate || null,
       });
       setOrderDetails((previous) => ({ ...previous, [selectedOrder.id]: detail }));
       await handleRefresh();
@@ -2522,6 +2578,192 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     </Stack>
   );
 
+  const renderKanbanBoard = (list, statuses, options = {}) => (
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 2,
+        overflowX: 'auto',
+        pb: 1,
+        alignItems: 'flex-start',
+      }}
+    >
+      {statuses.map((status) => {
+        const statusOrders = list.filter((order) => order.status === status.value);
+        const isDropActive = dragOverStatus === status.value;
+        const ownerRole = getStatusOwnerRole(status.value);
+        const canEditColumn = options.editableStatusValues ? options.editableStatusValues.has(status.value) : true;
+        const columnAccent = ownerRole === 'MANAGER'
+          ? theme.palette.primary.main
+          : ownerRole === 'EXECUTOR'
+            ? theme.palette.secondary.main
+            : theme.palette.info.main;
+
+        return (
+          <Box
+            key={status.value}
+            onDragOver={(event) => {
+              if (!canEditColumn) {
+                return;
+              }
+              event.preventDefault();
+              setDragOverStatus(status.value);
+            }}
+            onDragEnter={(event) => {
+              if (!canEditColumn) {
+                return;
+              }
+              event.preventDefault();
+              setDragOverStatus(status.value);
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setDragOverStatus((previous) => (previous === status.value ? '' : previous));
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (!canEditColumn) {
+                setDragOverStatus('');
+                return;
+              }
+              const orderId = Number(event.dataTransfer.getData('text/plain'));
+              const order = list.find((item) => item.id === orderId);
+              if (order) {
+                moveOrderToStatus(order, status.value);
+              } else {
+                setDragOverStatus('');
+              }
+            }}
+            sx={{
+              minWidth: 320,
+              flex: '1 1 320px',
+              maxWidth: 380,
+              p: 1.6,
+              borderRadius: '18px',
+              border: `1px solid ${isDropActive
+                ? theme.palette.primary.main
+                : canEditColumn
+                  ? alpha(columnAccent, 0.28)
+                  : 'rgba(95,99,104,0.14)'}`,
+              bgcolor: isDropActive
+                ? alpha(theme.palette.primary.main, 0.05)
+                : canEditColumn
+                  ? alpha(columnAccent, 0.03)
+                : alpha(theme.palette.background.paper, 0.95),
+              boxShadow: '0 8px 24px rgba(60,64,67,0.06)',
+              transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
+              opacity: canEditColumn ? 1 : 0.72,
+            }}
+          >
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
+              <Box>
+                <Typography variant="subtitle1">{status.label}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {statusOrders.length} заказ(ов)
+                </Typography>
+              </Box>
+              <Stack spacing={0.75} alignItems="flex-end">
+                <Chip
+                  label={ownerRole ? getRoleLabel(ownerRole) : 'Служебный'}
+                  size="small"
+                  variant={canEditColumn ? 'filled' : 'outlined'}
+                  color={ownerRole === 'EXECUTOR' ? 'secondary' : 'primary'}
+                />
+                <Chip
+                  label={canEditColumn ? 'Можно менять' : 'Только просмотр'}
+                  size="small"
+                  variant="outlined"
+                  color={canEditColumn ? 'success' : 'default'}
+                />
+                <Chip label={statusOrders.length} size="small" variant="outlined" />
+              </Stack>
+            </Stack>
+
+            <Stack spacing={1.2}>
+              {statusOrders.length ? (
+                statusOrders.map((order) => {
+                  const isDragging = draggedOrderId === order.id;
+                  return (
+                    <Paper
+                      key={order.id}
+                      variant="outlined"
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', String(order.id));
+                        setDraggedOrderId(order.id);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedOrderId(null);
+                        setDragOverStatus('');
+                      }}
+                      onClick={() => navigateToOrder(order.id)}
+                      sx={{
+                        p: 1.8,
+                        borderRadius: '14px',
+                        cursor: 'grab',
+                        backgroundColor: isDragging ? alpha(theme.palette.primary.main, 0.08) : '#fff',
+                        borderColor: isDragging ? 'primary.main' : 'divider',
+                        opacity: isDragging ? 0.75 : 1,
+                        transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                        '&:hover': {
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 8px 20px rgba(60,64,67,0.10)',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                    >
+                              <Stack spacing={1}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+                                  <Box sx={{ minWidth: 0 }}>
+                                    <Typography variant="subtitle2" noWrap>
+                                      {order.orderNumber}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 0.3 }}>
+                              {order.title}
+                            </Typography>
+                          </Box>
+                          <Chip label={order.priorityLabel} size="small" variant="outlined" color={getPriorityColor(order.priority)} />
+                                </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                  {order.clientName}
+                                </Typography>
+                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                  <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
+                          {order.dueDate ? (
+                            <Chip label={`Дедлайн ${formatDate(order.dueDate)}`} size="small" variant="outlined" />
+                          ) : null}
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  );
+                })
+              ) : (
+                <Box
+                  sx={{
+                    minHeight: 120,
+                    borderRadius: '14px',
+                    border: '1px dashed rgba(95,99,104,0.28)',
+                    bgcolor: 'rgba(26,115,232,0.03)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    px: 2,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    {options.emptyHint || 'Перетащите сюда карточку заказа'}
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+
   const renderOrderDetail = () => {
     if (!selectedOrder) {
       return null;
@@ -2596,8 +2838,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           </Grid>
         </SectionCard>
 
-        {auth.role !== 'CLIENT' ? (
-          <SectionCard title="Назначение" subtitle="Ответственные за заказ">
+        {(auth.role === 'ADMIN' || auth.role === 'MANAGER') ? (
+          <SectionCard title="Назначение и сроки" subtitle="Ответственные и контрольные даты заказа">
             <Box component="form" onSubmit={handleUpdateAssignments}>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
@@ -2628,10 +2870,28 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                     ))}
                   </TextField>
                 </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    type="date"
+                    label="План"
+                    InputLabelProps={{ shrink: true }}
+                    value={assignmentForm.plannedDate}
+                    onChange={(event) => setAssignmentForm((previous) => ({ ...previous, plannedDate: event.target.value }))}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    type="date"
+                    label="Дедлайн"
+                    InputLabelProps={{ shrink: true }}
+                    value={assignmentForm.dueDate}
+                    onChange={(event) => setAssignmentForm((previous) => ({ ...previous, dueDate: event.target.value }))}
+                  />
+                </Grid>
                 <Grid item xs={12}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
-                      Можно поменять ответственных без изменения остальных данных заказа.
+                      Можно поменять ответственных и даты без изменения остальных данных заказа.
                     </Typography>
                     <Button type="submit" variant="contained" disabled={actionLoading}>
                       Сохранить назначение
@@ -2713,7 +2973,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       <Stack spacing={2.2}>
         <ChatPanel
           title="Чат заказа"
-          subtitle="Сообщения в этом чате доступны администратору, менеджеру этого заказа и клиенту этого заказа."
+          subtitle="Сообщения в этом чате доступны администратору, менеджеру, исполнителю и клиенту этого заказа."
           messages={chatMessages}
           loading={chatLoading}
           error={chatError}
@@ -2955,7 +3215,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           <SectionCard
             title="Заказы"
             subtitle={isKanbanView
-              ? 'Перетаскивайте карточки между колонками, чтобы быстро менять статус'
+              ? 'Синие колонки меняет менеджер, зелёные - исполнитель, серые доступны только для просмотра'
               : 'Откройте карточку заказа или используйте фильтры для поиска нужной записи'}
             action={
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -2980,151 +3240,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             sx={{ width: '100%' }}
           >
             {isKanbanView ? (
-              <Box
-                sx={{
-                  display: 'flex',
-                  gap: 2,
-                  overflowX: 'auto',
-                  pb: 1,
-                  alignItems: 'flex-start',
-                }}
-              >
-                {managerKanbanStatuses.map((status) => {
-                  const statusOrders = list.filter((order) => order.status === status.value);
-                  const isDropActive = dragOverStatus === status.value;
-
-                  return (
-                    <Box
-                      key={status.value}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        setDragOverStatus(status.value);
-                      }}
-                      onDragEnter={(event) => {
-                        event.preventDefault();
-                        setDragOverStatus(status.value);
-                      }}
-                      onDragLeave={(event) => {
-                        if (!event.currentTarget.contains(event.relatedTarget)) {
-                          setDragOverStatus((previous) => (previous === status.value ? '' : previous));
-                        }
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        const orderId = Number(event.dataTransfer.getData('text/plain'));
-                        const order = list.find((item) => item.id === orderId);
-                        if (order) {
-                          moveOrderToStatus(order, status.value);
-                        } else {
-                          setDragOverStatus('');
-                        }
-                      }}
-                      sx={{
-                        minWidth: 320,
-                        flex: '1 1 320px',
-                        maxWidth: 380,
-                        p: 1.6,
-                        borderRadius: '18px',
-                        border: `1px solid ${isDropActive ? theme.palette.primary.main : 'rgba(95,99,104,0.14)'}`,
-                        bgcolor: isDropActive
-                          ? alpha(theme.palette.primary.main, 0.05)
-                          : alpha(theme.palette.background.paper, 0.95),
-                        boxShadow: '0 8px 24px rgba(60,64,67,0.06)',
-                        transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
-                      }}
-                    >
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
-                        <Box>
-                          <Typography variant="subtitle1">{status.label}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {statusOrders.length} заказ(ов)
-                          </Typography>
-                        </Box>
-                        <Chip label={statusOrders.length} size="small" variant="outlined" />
-                      </Stack>
-
-                      <Stack spacing={1.2}>
-                        {statusOrders.length ? (
-                          statusOrders.map((order) => {
-                            const isDragging = draggedOrderId === order.id;
-                            return (
-                              <Paper
-                                key={order.id}
-                                variant="outlined"
-                                draggable
-                                onDragStart={(event) => {
-                                  event.dataTransfer.effectAllowed = 'move';
-                                  event.dataTransfer.setData('text/plain', String(order.id));
-                                  setDraggedOrderId(order.id);
-                                }}
-                                onDragEnd={() => {
-                                  setDraggedOrderId(null);
-                                  setDragOverStatus('');
-                                }}
-                                onClick={() => navigateToOrder(order.id)}
-                                sx={{
-                                  p: 1.8,
-                                  borderRadius: '14px',
-                                  cursor: 'grab',
-                                  backgroundColor: isDragging ? alpha(theme.palette.primary.main, 0.08) : '#fff',
-                                  borderColor: isDragging ? 'primary.main' : 'divider',
-                                  opacity: isDragging ? 0.75 : 1,
-                                  transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
-                                  '&:hover': {
-                                    transform: 'translateY(-1px)',
-                                    boxShadow: '0 8px 20px rgba(60,64,67,0.10)',
-                                    borderColor: 'primary.main',
-                                  },
-                                }}
-                              >
-                                <Stack spacing={1}>
-                                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-                                    <Box sx={{ minWidth: 0 }}>
-                                      <Typography variant="subtitle2" noWrap>
-                                        {order.orderNumber}
-                                      </Typography>
-                                      <Typography variant="body2" sx={{ mt: 0.3 }}>
-                                        {order.title}
-                                      </Typography>
-                                    </Box>
-                                    <Chip label={order.priorityLabel} size="small" variant="outlined" color={getPriorityColor(order.priority)} />
-                                  </Stack>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {order.clientName}
-                                  </Typography>
-                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                    <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
-                                    {order.dueDate ? (
-                                      <Chip label={`Дедлайн ${formatDate(order.dueDate)}`} size="small" variant="outlined" />
-                                    ) : null}
-                                  </Stack>
-                                </Stack>
-                              </Paper>
-                            );
-                          })
-                        ) : (
-                          <Box
-                            sx={{
-                              minHeight: 120,
-                              borderRadius: '14px',
-                              border: '1px dashed rgba(95,99,104,0.28)',
-                              bgcolor: 'rgba(26,115,232,0.03)',
-                              display: 'grid',
-                              placeItems: 'center',
-                              px: 2,
-                              textAlign: 'center',
-                            }}
-                          >
-                            <Typography variant="body2" color="text.secondary">
-                              Перетащите сюда карточку заказа
-                            </Typography>
-                          </Box>
-                        )}
-                      </Stack>
-                    </Box>
-                  );
-                })}
-              </Box>
+              renderKanbanBoard(list, kanbanStatuses, { editableStatusValues })
             ) : (
               <Stack spacing={1.2}>
                 <ListControls
@@ -3153,6 +3269,21 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                 {renderOrderList(list)}
               </Stack>
             )}
+          </SectionCard>
+        </Stack>
+      );
+    }
+
+    if (auth.role === 'EXECUTOR') {
+      return (
+        <Stack spacing={2.2}>
+          <SectionCard
+            title="Мои задачи"
+            subtitle="Зелёные колонки меняет исполнитель, синие и серые показывают этапы, которые ведёт менеджер"
+            action={<Chip label={`${list.length}`} size="small" variant="outlined" />}
+            sx={{ width: '100%' }}
+          >
+            {renderKanbanBoard(list, kanbanStatuses, { editableStatusValues, emptyHint: 'Перетащите сюда задачу' })}
           </SectionCard>
         </Stack>
       );
