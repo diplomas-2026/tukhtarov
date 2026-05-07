@@ -478,6 +478,97 @@ function EmptyState({ title, subtitle }) {
   );
 }
 
+function normalizeSearchValue(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function compareText(a, b) {
+  return String(a ?? '').localeCompare(String(b ?? ''), 'ru', { sensitivity: 'base' });
+}
+
+function compareDateValue(a, b) {
+  const timeA = a ? new Date(a).getTime() : 0;
+  const timeB = b ? new Date(b).getTime() : 0;
+  return timeA - timeB;
+}
+
+function getPriorityWeight(priority) {
+  const weights = {
+    LOW: 1,
+    NORMAL: 2,
+    HIGH: 3,
+    URGENT: 4,
+  };
+  return weights[priority] || 0;
+}
+
+function matchesSearch(fields, query) {
+  if (!query) {
+    return true;
+  }
+  return fields.some((field) => normalizeSearchValue(field).includes(query));
+}
+
+function ListControls({
+  search,
+  onSearchChange,
+  searchLabel = 'Поиск',
+  searchPlaceholder = 'Поиск по списку',
+  sortValue,
+  onSortChange,
+  sortOptions = [],
+  filters = [],
+}) {
+  return (
+    <Stack spacing={1.5} sx={{ mb: 2 }}>
+      <TextField
+        label={searchLabel}
+        value={search}
+        onChange={(event) => onSearchChange(event.target.value)}
+        placeholder={searchPlaceholder}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchRoundedIcon fontSize="small" />
+            </InputAdornment>
+          ),
+        }}
+      />
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+        {filters.map((filter) => (
+          <TextField
+            key={filter.label}
+            select
+            label={filter.label}
+            value={filter.value}
+            onChange={(event) => filter.onChange(event.target.value)}
+          >
+            {filter.options.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        ))}
+        {sortOptions.length ? (
+          <TextField
+            select
+            label="Сортировка"
+            value={sortValue}
+            onChange={(event) => onSortChange(event.target.value)}
+          >
+            {sortOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : null}
+      </Stack>
+    </Stack>
+  );
+}
+
 function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
   const heroMetrics = [
     { value: '4 роли', label: 'Администратор, менеджер, исполнитель и клиент' },
@@ -1012,7 +1103,45 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(initialNavigation.orderId);
   const [tab, setTab] = useState(initialNavigation.tab);
-  const [orderSearch, setOrderSearch] = useState('');
+  const [orderFilters, setOrderFilters] = useState({
+    search: '',
+    sort: 'updatedDesc',
+    status: 'ALL',
+    priority: 'ALL',
+  });
+  const [userFilters, setUserFilters] = useState({
+    search: '',
+    sort: 'nameAsc',
+    role: 'ALL',
+    active: 'ALL',
+  });
+  const [clientFilters, setClientFilters] = useState({
+    search: '',
+    sort: 'nameAsc',
+    city: 'ALL',
+  });
+  const [statusFilters, setStatusFilters] = useState({
+    search: '',
+    sort: 'labelAsc',
+  });
+  const [roleFilters, setRoleFilters] = useState({
+    search: '',
+    sort: 'labelAsc',
+  });
+  const [historyFilters, setHistoryFilters] = useState({
+    search: '',
+    sort: 'dateDesc',
+  });
+  const [chatFilters, setChatFilters] = useState({
+    search: '',
+    sort: 'dateAsc',
+    role: 'ALL',
+  });
+  const [supportChatFilters, setSupportChatFilters] = useState({
+    search: '',
+    sort: 'dateAsc',
+    role: 'ALL',
+  });
   const [createOrderForm, setCreateOrderForm] = useState({
     orderNumber: 'IMP-2026-004',
     title: '',
@@ -1071,24 +1200,347 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const allowedStatuses = useMemo(() => getAllowedStatuses(data.statuses, auth.role), [data.statuses, auth.role]);
 
   const filteredOrders = useMemo(() => {
-    const query = orderSearch.trim().toLowerCase();
-    if (!query) {
-      return data.orders;
-    }
-    return data.orders.filter((order) => {
-      const haystack = [
-        order.orderNumber,
-        order.title,
-        order.clientName,
-        order.statusLabel,
-        order.priorityLabel,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(query);
+    const query = normalizeSearchValue(orderFilters.search);
+    const base = data.orders.filter((order) => {
+      const statusMatch = orderFilters.status === 'ALL' || order.status === orderFilters.status;
+      const priorityMatch = orderFilters.priority === 'ALL' || order.priority === orderFilters.priority;
+      const searchMatch = matchesSearch(
+        [
+          order.orderNumber,
+          order.title,
+          order.clientName,
+          order.statusLabel,
+          order.priorityLabel,
+          order.description,
+        ],
+        query,
+      );
+      return statusMatch && priorityMatch && searchMatch;
     });
-  }, [data.orders, orderSearch]);
+
+    const sorted = [...base].sort((a, b) => {
+      switch (orderFilters.sort) {
+        case 'numberAsc':
+          return compareText(a.orderNumber, b.orderNumber);
+        case 'numberDesc':
+          return compareText(b.orderNumber, a.orderNumber);
+        case 'titleAsc':
+          return compareText(a.title, b.title);
+        case 'titleDesc':
+          return compareText(b.title, a.title);
+        case 'clientAsc':
+          return compareText(a.clientName, b.clientName);
+        case 'clientDesc':
+          return compareText(b.clientName, a.clientName);
+        case 'statusAsc':
+          return compareText(a.statusLabel, b.statusLabel);
+        case 'statusDesc':
+          return compareText(b.statusLabel, a.statusLabel);
+        case 'priorityAsc':
+          return getPriorityWeight(a.priority) - getPriorityWeight(b.priority);
+        case 'priorityDesc':
+          return getPriorityWeight(b.priority) - getPriorityWeight(a.priority);
+        case 'dueAsc':
+          return compareDateValue(a.dueDate, b.dueDate);
+        case 'dueDesc':
+          return compareDateValue(b.dueDate, a.dueDate);
+        case 'updatedAsc':
+          return compareDateValue(a.createdAt, b.createdAt);
+        case 'updatedDesc':
+        default:
+          return compareDateValue(b.createdAt, a.createdAt);
+      }
+    });
+
+    return sorted;
+  }, [data.orders, orderFilters]);
+
+  const filteredUsers = useMemo(() => {
+    const query = normalizeSearchValue(userFilters.search);
+    const base = data.users.filter((user) => {
+      const roleMatch = userFilters.role === 'ALL' || user.role === userFilters.role;
+      const activeMatch =
+        userFilters.active === 'ALL'
+        || (userFilters.active === 'ACTIVE' && user.active)
+        || (userFilters.active === 'INACTIVE' && !user.active);
+      const searchMatch = matchesSearch(
+        [user.fullName, user.login, user.email, user.phone, user.clientCompanyName, user.role],
+        query,
+      );
+      return roleMatch && activeMatch && searchMatch;
+    });
+
+    return [...base].sort((a, b) => {
+      switch (userFilters.sort) {
+        case 'loginAsc':
+          return compareText(a.login, b.login);
+        case 'loginDesc':
+          return compareText(b.login, a.login);
+        case 'roleAsc':
+          return compareText(a.role, b.role);
+        case 'roleDesc':
+          return compareText(b.role, a.role);
+        case 'statusAsc':
+          return compareText(String(a.active), String(b.active));
+        case 'statusDesc':
+          return compareText(String(b.active), String(a.active));
+        case 'nameDesc':
+          return compareText(b.fullName, a.fullName);
+        case 'nameAsc':
+        default:
+          return compareText(a.fullName, b.fullName);
+      }
+    });
+  }, [data.users, userFilters]);
+
+  const filteredClients = useMemo(() => {
+    const query = normalizeSearchValue(clientFilters.search);
+    const base = data.clients.filter((client) => {
+      const cityMatch = clientFilters.city === 'ALL' || client.city === clientFilters.city;
+      const searchMatch = matchesSearch(
+        [client.name, client.inn, client.contactPerson, client.phone, client.email, client.city],
+        query,
+      );
+      return cityMatch && searchMatch;
+    });
+
+    return [...base].sort((a, b) => {
+      switch (clientFilters.sort) {
+        case 'nameDesc':
+          return compareText(b.name, a.name);
+        case 'cityAsc':
+          return compareText(a.city, b.city);
+        case 'cityDesc':
+          return compareText(b.city, a.city);
+        case 'ordersAsc':
+          return (a.orderCount || 0) - (b.orderCount || 0);
+        case 'ordersDesc':
+          return (b.orderCount || 0) - (a.orderCount || 0);
+        case 'nameAsc':
+        default:
+          return compareText(a.name, b.name);
+      }
+    });
+  }, [clientFilters, data.clients]);
+
+  const filteredStatuses = useMemo(() => {
+    const query = normalizeSearchValue(statusFilters.search);
+    const base = data.statuses.filter((status) => matchesSearch([status.label, status.value], query));
+    return [...base].sort((a, b) => {
+      switch (statusFilters.sort) {
+        case 'valueAsc':
+          return compareText(a.value, b.value);
+        case 'valueDesc':
+          return compareText(b.value, a.value);
+        case 'labelDesc':
+          return compareText(b.label, a.label);
+        case 'labelAsc':
+        default:
+          return compareText(a.label, b.label);
+      }
+    });
+  }, [data.statuses, statusFilters]);
+
+  const filteredRoleTabs = useMemo(() => {
+    const query = normalizeSearchValue(roleFilters.search);
+    const base = tabs.filter((item) => matchesSearch([item.label, item.value], query));
+    return [...base].sort((a, b) => {
+      switch (roleFilters.sort) {
+        case 'labelDesc':
+          return compareText(b.label, a.label);
+        case 'valueAsc':
+          return compareText(a.value, b.value);
+        case 'valueDesc':
+          return compareText(b.value, a.value);
+        case 'labelAsc':
+        default:
+          return compareText(a.label, b.label);
+      }
+    });
+  }, [roleFilters.search, roleFilters.sort, tabs]);
+
+  const filteredHistory = useMemo(() => {
+    const detail = (selectedOrderId ? orderDetails[selectedOrderId] : null)
+      || data.orders.find((order) => order.id === selectedOrderId)
+      || null;
+    const items = detail?.history || [];
+    const query = normalizeSearchValue(historyFilters.search);
+    const base = items.filter((item) =>
+      matchesSearch([item.statusLabel, item.comment, item.changedByName, item.changedByRole], query),
+    );
+
+    return [...base].sort((a, b) => {
+      switch (historyFilters.sort) {
+        case 'dateAsc':
+          return compareDateValue(a.changedAt, b.changedAt);
+        case 'statusAsc':
+          return compareText(a.statusLabel, b.statusLabel);
+        case 'statusDesc':
+          return compareText(b.statusLabel, a.statusLabel);
+        case 'dateDesc':
+        default:
+          return compareDateValue(b.changedAt, a.changedAt);
+      }
+    });
+  }, [historyFilters, selectedOrderId, orderDetails, data.orders]);
+
+  const filteredChatMessages = useMemo(() => {
+    const query = normalizeSearchValue(chatFilters.search);
+    const base = chatMessages.filter((message) => {
+      const roleMatch = chatFilters.role === 'ALL' || message.authorRole === chatFilters.role;
+      const searchMatch = matchesSearch([message.authorName, message.authorRole, message.message], query);
+      return roleMatch && searchMatch;
+    });
+
+    return [...base].sort((a, b) => {
+      switch (chatFilters.sort) {
+        case 'dateDesc':
+          return compareDateValue(b.createdAt, a.createdAt);
+        case 'authorAsc':
+          return compareText(a.authorName, b.authorName);
+        case 'authorDesc':
+          return compareText(b.authorName, a.authorName);
+        case 'dateAsc':
+        default:
+          return compareDateValue(a.createdAt, b.createdAt);
+      }
+    });
+  }, [chatFilters, chatMessages]);
+
+  const filteredSupportChatMessages = useMemo(() => {
+    const query = normalizeSearchValue(supportChatFilters.search);
+    const base = supportChatMessages.filter((message) => {
+      const roleMatch = supportChatFilters.role === 'ALL' || message.authorRole === supportChatFilters.role;
+      const searchMatch = matchesSearch([message.authorName, message.authorRole, message.message], query);
+      return roleMatch && searchMatch;
+    });
+
+    return [...base].sort((a, b) => {
+      switch (supportChatFilters.sort) {
+        case 'dateDesc':
+          return compareDateValue(b.createdAt, a.createdAt);
+        case 'authorAsc':
+          return compareText(a.authorName, b.authorName);
+        case 'authorDesc':
+          return compareText(b.authorName, a.authorName);
+        case 'dateAsc':
+        default:
+          return compareDateValue(a.createdAt, b.createdAt);
+      }
+    });
+  }, [supportChatFilters, supportChatMessages]);
+
+  const orderStatusOptions = useMemo(
+    () => [
+      { value: 'ALL', label: 'Все статусы' },
+      ...data.statuses.map((status) => ({ value: status.value, label: status.label })),
+    ],
+    [data.statuses],
+  );
+
+  const orderPriorityOptions = useMemo(
+    () => [
+      { value: 'ALL', label: 'Все приоритеты' },
+      ...data.priorities.map((priority) => ({ value: priority.value, label: priority.label })),
+    ],
+    [data.priorities],
+  );
+
+  const userRoleOptions = useMemo(
+    () => [
+      { value: 'ALL', label: 'Все роли' },
+      ...(data.roles.length
+        ? data.roles
+        : [
+            { value: 'ADMIN', label: 'Администратор' },
+            { value: 'MANAGER', label: 'Менеджер' },
+            { value: 'EXECUTOR', label: 'Исполнитель' },
+            { value: 'CLIENT', label: 'Клиент' },
+          ]),
+    ],
+    [data.roles],
+  );
+
+  const clientCityOptions = useMemo(() => {
+    const uniqueCities = [...new Set(data.clients.map((client) => client.city).filter(Boolean))].sort(compareText);
+    return [
+      { value: 'ALL', label: 'Все города' },
+      ...uniqueCities.map((city) => ({ value: city, label: city })),
+    ];
+  }, [data.clients]);
+
+  const chatRoleOptions = [
+    { value: 'ALL', label: 'Все роли' },
+    { value: 'ADMIN', label: 'Администратор' },
+    { value: 'MANAGER', label: 'Менеджер' },
+    { value: 'EXECUTOR', label: 'Исполнитель' },
+    { value: 'CLIENT', label: 'Клиент' },
+  ];
+
+  const orderSortOptions = [
+    { value: 'updatedDesc', label: 'Сначала новые' },
+    { value: 'updatedAsc', label: 'Сначала старые' },
+    { value: 'numberAsc', label: 'По номеру А-Я' },
+    { value: 'numberDesc', label: 'По номеру Я-А' },
+    { value: 'titleAsc', label: 'По названию А-Я' },
+    { value: 'titleDesc', label: 'По названию Я-А' },
+    { value: 'clientAsc', label: 'По клиенту А-Я' },
+    { value: 'clientDesc', label: 'По клиенту Я-А' },
+    { value: 'statusAsc', label: 'По статусу А-Я' },
+    { value: 'statusDesc', label: 'По статусу Я-А' },
+    { value: 'priorityAsc', label: 'По приоритету по возрастанию' },
+    { value: 'priorityDesc', label: 'По приоритету по убыванию' },
+    { value: 'dueAsc', label: 'По дедлайну ближе' },
+    { value: 'dueDesc', label: 'По дедлайну дальше' },
+  ];
+
+  const userSortOptions = [
+    { value: 'nameAsc', label: 'По имени А-Я' },
+    { value: 'nameDesc', label: 'По имени Я-А' },
+    { value: 'loginAsc', label: 'По логину А-Я' },
+    { value: 'loginDesc', label: 'По логину Я-А' },
+    { value: 'roleAsc', label: 'По роли А-Я' },
+    { value: 'roleDesc', label: 'По роли Я-А' },
+    { value: 'statusAsc', label: 'Сначала активные' },
+    { value: 'statusDesc', label: 'Сначала отключённые' },
+  ];
+
+  const clientSortOptions = [
+    { value: 'nameAsc', label: 'По названию А-Я' },
+    { value: 'nameDesc', label: 'По названию Я-А' },
+    { value: 'cityAsc', label: 'По городу А-Я' },
+    { value: 'cityDesc', label: 'По городу Я-А' },
+    { value: 'ordersAsc', label: 'По числу заказов по возрастанию' },
+    { value: 'ordersDesc', label: 'По числу заказов по убыванию' },
+  ];
+
+  const statusSortOptions = [
+    { value: 'labelAsc', label: 'По названию А-Я' },
+    { value: 'labelDesc', label: 'По названию Я-А' },
+    { value: 'valueAsc', label: 'По коду А-Я' },
+    { value: 'valueDesc', label: 'По коду Я-А' },
+  ];
+
+  const roleSortOptions = [
+    { value: 'labelAsc', label: 'По названию А-Я' },
+    { value: 'labelDesc', label: 'По названию Я-А' },
+    { value: 'valueAsc', label: 'По коду А-Я' },
+    { value: 'valueDesc', label: 'По коду Я-А' },
+  ];
+
+  const historySortOptions = [
+    { value: 'dateDesc', label: 'Сначала новые' },
+    { value: 'dateAsc', label: 'Сначала старые' },
+    { value: 'statusAsc', label: 'По статусу А-Я' },
+    { value: 'statusDesc', label: 'По статусу Я-А' },
+  ];
+
+  const chatSortOptions = [
+    { value: 'dateAsc', label: 'Сначала старые' },
+    { value: 'dateDesc', label: 'Сначала новые' },
+    { value: 'authorAsc', label: 'По автору А-Я' },
+    { value: 'authorDesc', label: 'По автору Я-А' },
+  ];
 
   const selectedOrderDetails = orderDetails[selectedOrderId] || null;
   const selectedOrder =
@@ -1638,7 +2090,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const renderDashboard = () => {
     const statusEntries = Object.entries(dashboard.statusCounts || {});
     const priorityEntries = Object.entries(dashboard.priorityCounts || {});
-    const recentOrders = dashboard.recentOrders || [];
+    const recentOrders = filteredOrders.slice(0, 4);
 
     return (
       <Stack spacing={3}>
@@ -1783,6 +2235,15 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         </Grid>
 
         <SectionCard title="Последние заказы" subtitle="Свежие карточки, которые чаще всего требуют внимания">
+          <ListControls
+            search={orderFilters.search}
+            onSearchChange={(value) => setOrderFilters((previous) => ({ ...previous, search: value }))}
+            searchLabel="Поиск заказов"
+            searchPlaceholder="Номер, название, клиент"
+            sortValue={orderFilters.sort}
+            onSortChange={(value) => setOrderFilters((previous) => ({ ...previous, sort: value }))}
+            sortOptions={orderSortOptions}
+          />
           <Stack spacing={1.5}>
             {recentOrders.length ? (
               recentOrders.map((order) => (
@@ -1991,9 +2452,18 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         ) : null}
 
         <SectionCard title="История статусов" subtitle="Последовательность изменений по заказу">
+          <ListControls
+            search={historyFilters.search}
+            onSearchChange={(value) => setHistoryFilters((previous) => ({ ...previous, search: value }))}
+            searchLabel="Поиск по истории"
+            searchPlaceholder="Статус, комментарий, автор"
+            sortValue={historyFilters.sort}
+            onSortChange={(value) => setHistoryFilters((previous) => ({ ...previous, sort: value }))}
+            sortOptions={historySortOptions}
+          />
           <Stack spacing={1.2}>
-            {detail.history?.length ? (
-              detail.history.map((item) => (
+            {filteredHistory.length ? (
+              filteredHistory.map((item) => (
                 <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                   <Stack spacing={0.4}>
                     <Typography variant="subtitle2">{item.statusLabel}</Typography>
@@ -2021,20 +2491,39 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     }
 
     return (
-      <ChatPanel
-        title="Чат заказа"
-        subtitle="Сообщения в этом чате доступны администратору, менеджеру этого заказа и клиенту этого заказа."
-        messages={chatMessages}
-        loading={chatLoading}
-        error={chatError}
-        draft={chatDraft}
-        onDraftChange={setChatDraft}
-        onSend={handleSendChatMessage}
-        sending={chatSending}
-        scrollRef={chatScrollRef}
-        currentRole={auth.role}
-        currentName={auth.fullName}
-      />
+      <Stack spacing={2.2}>
+        <ListControls
+          search={chatFilters.search}
+          onSearchChange={(value) => setChatFilters((previous) => ({ ...previous, search: value }))}
+          searchLabel="Поиск в чате"
+          searchPlaceholder="Автор, роль, сообщение"
+          sortValue={chatFilters.sort}
+          onSortChange={(value) => setChatFilters((previous) => ({ ...previous, sort: value }))}
+          sortOptions={chatSortOptions}
+          filters={[
+            {
+              label: 'Роль',
+              value: chatFilters.role,
+              onChange: (value) => setChatFilters((previous) => ({ ...previous, role: value })),
+              options: chatRoleOptions,
+            },
+          ]}
+        />
+        <ChatPanel
+          title="Чат заказа"
+          subtitle="Сообщения в этом чате доступны администратору, менеджеру этого заказа и клиенту этого заказа."
+          messages={filteredChatMessages}
+          loading={chatLoading}
+          error={chatError}
+          draft={chatDraft}
+          onDraftChange={setChatDraft}
+          onSend={handleSendChatMessage}
+          sending={chatSending}
+          scrollRef={chatScrollRef}
+          currentRole={auth.role}
+          currentName={auth.fullName}
+        />
+      </Stack>
     );
   };
 
@@ -2076,10 +2565,27 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             </TextField>
           </SectionCard>
         ) : null}
+        <ListControls
+          search={supportChatFilters.search}
+          onSearchChange={(value) => setSupportChatFilters((previous) => ({ ...previous, search: value }))}
+          searchLabel="Поиск в чате"
+          searchPlaceholder="Автор, роль, сообщение"
+          sortValue={supportChatFilters.sort}
+          onSortChange={(value) => setSupportChatFilters((previous) => ({ ...previous, sort: value }))}
+          sortOptions={chatSortOptions}
+          filters={[
+            {
+              label: 'Роль',
+              value: supportChatFilters.role,
+              onChange: (value) => setSupportChatFilters((previous) => ({ ...previous, role: value })),
+              options: chatRoleOptions,
+            },
+          ]}
+        />
         <ChatPanel
           title="Чат поддержки"
           subtitle="Здесь клиент пишет запрос на новый заказ, а менеджер или администратор отвечает в том же диалоге."
-          messages={supportChatMessages}
+          messages={filteredSupportChatMessages}
           loading={supportChatLoading}
           error={supportChatError}
           draft={supportChatDraft}
@@ -2102,19 +2608,28 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           subtitle="Откройте карточку, чтобы работать с деталями заказа"
           action={<Chip label={`${list.length}`} size="small" variant="outlined" />}
         >
-          <TextField
-            label="Поиск"
-            value={orderSearch}
-            onChange={(event) => setOrderSearch(event.target.value)}
-            placeholder="Номер, название, статус"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchRoundedIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ mb: 2 }}
+          <ListControls
+            search={orderFilters.search}
+            onSearchChange={(value) => setOrderFilters((previous) => ({ ...previous, search: value }))}
+            searchLabel="Поиск заказов"
+            searchPlaceholder="Номер, название, клиент"
+            sortValue={orderFilters.sort}
+            onSortChange={(value) => setOrderFilters((previous) => ({ ...previous, sort: value }))}
+            sortOptions={orderSortOptions}
+            filters={[
+              {
+                label: 'Статус',
+                value: orderFilters.status,
+                onChange: (value) => setOrderFilters((previous) => ({ ...previous, status: value })),
+                options: orderStatusOptions,
+              },
+              {
+                label: 'Приоритет',
+                value: orderFilters.priority,
+                onChange: (value) => setOrderFilters((previous) => ({ ...previous, priority: value })),
+                options: orderPriorityOptions,
+              },
+            ]}
           />
           {renderOrderList(list)}
         </SectionCard>
@@ -2209,9 +2724,36 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       </Grid>
       <Grid item xs={12} md={7}>
         <SectionCard title="Пользователи" subtitle="Аккаунты сотрудников и их роли">
+          <ListControls
+            search={userFilters.search}
+            onSearchChange={(value) => setUserFilters((previous) => ({ ...previous, search: value }))}
+            searchLabel="Поиск пользователей"
+            searchPlaceholder="Имя, логин, email, телефон"
+            sortValue={userFilters.sort}
+            onSortChange={(value) => setUserFilters((previous) => ({ ...previous, sort: value }))}
+            sortOptions={userSortOptions}
+            filters={[
+              {
+                label: 'Роль',
+                value: userFilters.role,
+                onChange: (value) => setUserFilters((previous) => ({ ...previous, role: value })),
+                options: userRoleOptions,
+              },
+              {
+                label: 'Состояние',
+                value: userFilters.active,
+                onChange: (value) => setUserFilters((previous) => ({ ...previous, active: value })),
+                options: [
+                  { value: 'ALL', label: 'Все' },
+                  { value: 'ACTIVE', label: 'Активные' },
+                  { value: 'INACTIVE', label: 'Отключённые' },
+                ],
+              },
+            ]}
+          />
           <Stack spacing={1.2}>
-            {data.users.length ? (
-              data.users.map((user) => (
+            {filteredUsers.length ? (
+              filteredUsers.map((user) => (
                 <Paper key={user.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                     <Box>
@@ -2262,9 +2804,26 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       </Grid>
       <Grid item xs={12} md={7}>
         <SectionCard title="Клиенты" subtitle="Компании, по которым ведутся заказы">
+          <ListControls
+            search={clientFilters.search}
+            onSearchChange={(value) => setClientFilters((previous) => ({ ...previous, search: value }))}
+            searchLabel="Поиск клиентов"
+            searchPlaceholder="Название, ИНН, контакт, город"
+            sortValue={clientFilters.sort}
+            onSortChange={(value) => setClientFilters((previous) => ({ ...previous, sort: value }))}
+            sortOptions={clientSortOptions}
+            filters={[
+              {
+                label: 'Город',
+                value: clientFilters.city,
+                onChange: (value) => setClientFilters((previous) => ({ ...previous, city: value })),
+                options: clientCityOptions,
+              },
+            ]}
+          />
           <Stack spacing={1.2}>
-            {data.clients.length ? (
-              data.clients.map((client) => (
+            {filteredClients.length ? (
+              filteredClients.map((client) => (
                 <Paper key={client.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                     <Box>
@@ -2293,8 +2852,17 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     <Grid container spacing={2.2}>
       <Grid item xs={12} md={6}>
         <SectionCard title="Статусы заказа" subtitle="Производственный цикл и доступные этапы">
+          <ListControls
+            search={statusFilters.search}
+            onSearchChange={(value) => setStatusFilters((previous) => ({ ...previous, search: value }))}
+            searchLabel="Поиск статусов"
+            searchPlaceholder="Название или код статуса"
+            sortValue={statusFilters.sort}
+            onSortChange={(value) => setStatusFilters((previous) => ({ ...previous, sort: value }))}
+            sortOptions={statusSortOptions}
+          />
           <Stack spacing={1.2}>
-            {data.statuses.map((status) => (
+            {filteredStatuses.map((status) => (
               <Paper key={status.value} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                   <Typography variant="body2" fontWeight={600}>
@@ -2309,8 +2877,17 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       </Grid>
       <Grid item xs={12} md={6}>
         <SectionCard title="Роли и действия" subtitle="Что доступно каждой роли в системе">
+          <ListControls
+            search={roleFilters.search}
+            onSearchChange={(value) => setRoleFilters((previous) => ({ ...previous, search: value }))}
+            searchLabel="Поиск ролей"
+            searchPlaceholder="Название роли"
+            sortValue={roleFilters.sort}
+            onSortChange={(value) => setRoleFilters((previous) => ({ ...previous, sort: value }))}
+            sortOptions={roleSortOptions}
+          />
           <Stack spacing={1.2}>
-            {tabs.map((item) => (
+            {filteredRoleTabs.map((item) => (
               <Paper key={item.value} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                 <Typography variant="subtitle2">{item.label}</Typography>
               </Paper>
