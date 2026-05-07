@@ -10,6 +10,7 @@ public record OrderSummaryDto(
         String statusLabel,
         String priority,
         String priorityLabel,
+        Long clientCompanyId,
         String clientName,
         String managerName,
         String executorName,

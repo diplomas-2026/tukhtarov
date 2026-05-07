@@ -213,6 +213,10 @@ const TAB_TITLES = {
     title: 'Новый заказ',
     subtitle: 'Короткая карточка для запуска нового производственного заказа.',
   },
+  'client-detail': {
+    title: 'Клиент',
+    subtitle: 'Заказы компании и общий чат поддержки по выбранному клиенту.',
+  },
   'create-client': {
     title: 'Новый клиент',
     subtitle: 'Отдельная страница для добавления новой компании-заказчика.',
@@ -861,36 +865,44 @@ const ROUTE_PATHS = {
 };
 
 function getNavigationState(pathname) {
-  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  const cleanPath = pathname.split(/[?#]/)[0];
+  const normalizedPath = cleanPath.replace(/\/+$/, '') || '/';
+  const queryString = pathname.includes('?') ? pathname.split('?')[1] : '';
+  const searchParams = new URLSearchParams(queryString);
   const orderMatch = normalizedPath.match(/^\/orders\/(\d+)$/);
+  const clientMatch = normalizedPath.match(/^\/clients\/(\d+)$/);
   if (orderMatch) {
-    return { tab: 'orders', orderId: Number(orderMatch[1]) };
+    return { tab: 'orders', orderId: Number(orderMatch[1]), clientId: null };
+  }
+  if (clientMatch) {
+    return { tab: 'client-detail', orderId: null, clientId: Number(clientMatch[1]) };
   }
   if (normalizedPath === '/orders') {
-    return { tab: 'orders', orderId: null };
+    return { tab: 'orders', orderId: null, clientId: null };
   }
   if (normalizedPath === '/tasks') {
-    return { tab: 'tasks', orderId: null };
+    return { tab: 'tasks', orderId: null, clientId: null };
   }
   if (normalizedPath === '/create-order') {
-    return { tab: 'create-order', orderId: null };
+    const clientId = searchParams.get('clientId');
+    return { tab: 'create-order', orderId: null, clientId: clientId ? Number(clientId) : null };
   }
   if (normalizedPath === '/clients/new') {
-    return { tab: 'create-client', orderId: null };
+    return { tab: 'create-client', orderId: null, clientId: null };
   }
   if (normalizedPath === '/users') {
-    return { tab: 'users', orderId: null };
+    return { tab: 'users', orderId: null, clientId: null };
   }
   if (normalizedPath === '/clients') {
-    return { tab: 'clients', orderId: null };
+    return { tab: 'clients', orderId: null, clientId: null };
   }
   if (normalizedPath === '/statuses') {
-    return { tab: 'statuses', orderId: null };
+    return { tab: 'statuses', orderId: null, clientId: null };
   }
   if (normalizedPath === '/chat') {
-    return { tab: 'support-chat', orderId: null };
+    return { tab: 'support-chat', orderId: null, clientId: null };
   }
-  return { tab: 'dashboard', orderId: null };
+  return { tab: 'dashboard', orderId: null, clientId: null };
 }
 
 function LoginScreen({ initialMode = 'login', onNavigate, onSuccess, snackbar, setSnackbar }) {
@@ -1095,7 +1107,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const muiTheme = useTheme();
   const isDesktop = useMediaQuery(muiTheme.breakpoints.up('lg'));
   const drawerWidth = 320;
-  const initialNavigation = getNavigationState(window.location.pathname);
+  const initialNavigation = getNavigationState(window.location.pathname + window.location.search);
   const [data, setData] = useState({
     dashboard: null,
     orders: [],
@@ -1108,6 +1120,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const [orderDetails, setOrderDetails] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(initialNavigation.orderId);
+  const [selectedClientId, setSelectedClientId] = useState(initialNavigation.clientId);
   const [tab, setTab] = useState(initialNavigation.tab);
   const [orderFilters, setOrderFilters] = useState({
     search: '',
@@ -1464,6 +1477,30 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const selectedOrderDetails = orderDetails[selectedOrderId] || null;
   const selectedOrder =
     selectedOrderDetails || data.orders.find((order) => order.id === selectedOrderId) || null;
+  const selectedClient = useMemo(() => {
+    if (!selectedClientId) {
+      return null;
+    }
+    return data.clients.find((client) => client.id === selectedClientId)
+      || (auth.role === 'CLIENT' && auth.clientCompanyId === selectedClientId
+        ? {
+            id: auth.clientCompanyId,
+            name: auth.clientCompanyName || auth.fullName,
+            inn: '',
+            contactPerson: auth.fullName,
+            phone: auth.phone || '',
+            email: auth.email || '',
+            city: '',
+            orderCount: 0,
+          }
+        : null);
+  }, [auth.clientCompanyId, auth.clientCompanyName, auth.email, auth.fullName, auth.phone, auth.role, data.clients, selectedClientId]);
+  const selectedClientOrders = useMemo(() => {
+    if (!selectedClientId) {
+      return [];
+    }
+    return data.orders.filter((order) => Number(order.clientCompanyId) === Number(selectedClientId));
+  }, [data.orders, selectedClientId]);
   const canUseChat =
     Boolean(selectedOrderDetails) &&
     (auth.role === 'ADMIN'
@@ -1471,6 +1508,17 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       || (auth.role === 'CLIENT' && selectedOrderDetails.clientCompany?.id === auth.clientCompanyId));
   const selectedSupportCompanyIdValue =
     auth.role === 'CLIENT' ? auth.clientCompanyId || '' : selectedSupportCompanyId;
+  const createOrderClientIdFromRoute = useMemo(() => {
+    if (tab !== 'create-order') {
+      return null;
+    }
+    const searchParams = new URLSearchParams(window.location.search);
+    const value = searchParams.get('clientId');
+    return value ? Number(value) : null;
+  }, [tab]);
+  const activeSupportCompanyId = tab === 'client-detail'
+    ? selectedClientId
+    : selectedSupportCompanyIdValue;
 
   const showMessage = useCallback((message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -1493,9 +1541,10 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
   useEffect(() => {
     const syncNavigationState = () => {
-      const route = getNavigationState(window.location.pathname);
+      const route = getNavigationState(window.location.pathname + window.location.search);
       setTab(route.tab);
       setSelectedOrderId(route.orderId);
+      setSelectedClientId(route.clientId);
     };
 
     syncNavigationState();
@@ -1704,10 +1753,65 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   }, [tab, selectedSupportCompanyIdValue, handleApiError]);
 
   useEffect(() => {
+    if (tab !== 'client-detail' || !activeSupportCompanyId) {
+      setSupportChatMessages([]);
+      setSupportChatDraft('');
+      setSupportChatLastMessageAt(null);
+      setSupportChatLoading(false);
+      setSupportChatError('');
+      supportChatLastMessageAtRef.current = null;
+      return;
+    }
+
+    let active = true;
+    const syncSupportChat = async () => {
+      setSupportChatLoading(true);
+      setSupportChatError('');
+      try {
+        await reloadSupportChat(activeSupportCompanyId);
+      } catch (error) {
+        if (active) {
+          handleApiError(error);
+          setSupportChatError(error.message);
+        }
+      } finally {
+        if (active) {
+          setSupportChatLoading(false);
+        }
+      }
+    };
+
+    syncSupportChat();
+    const intervalId = setInterval(async () => {
+      if (!active) {
+        return;
+      }
+      try {
+        const state = await loadSupportChatState(activeSupportCompanyId);
+        const nextLastMessageAt = state?.lastMessageAt || null;
+        if ((nextLastMessageAt || '') !== (supportChatLastMessageAtRef.current || '')) {
+          await reloadSupportChat(activeSupportCompanyId);
+        }
+      } catch (error) {
+        if (active && error?.status !== 401) {
+          setSupportChatError(error.message);
+        } else if (error?.status === 401) {
+          handleApiError(error);
+        }
+      }
+    }, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
+  }, [tab, activeSupportCompanyId, handleApiError]);
+
+  useEffect(() => {
     if (supportChatScrollRef.current) {
       supportChatScrollRef.current.scrollTop = supportChatScrollRef.current.scrollHeight;
     }
-  }, [supportChatMessages, selectedSupportCompanyIdValue]);
+  }, [activeSupportCompanyId, supportChatMessages]);
 
   useEffect(() => {
     if (allowedStatuses.length && !allowedStatuses.some((item) => item.value === statusForm.status)) {
@@ -1716,13 +1820,22 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   }, [allowedStatuses, statusForm.status]);
 
   useEffect(() => {
+    if (createOrderClientIdFromRoute) {
+      setCreateOrderForm((previous) => {
+        const nextClientId = String(createOrderClientIdFromRoute);
+        return previous.clientCompanyId === nextClientId
+          ? previous
+          : { ...previous, clientCompanyId: nextClientId };
+      });
+      return;
+    }
     if (!data.clients.length) {
       return;
     }
-    if (!createOrderForm.clientCompanyId) {
+    if (!createOrderForm.clientCompanyId || !data.clients.some((client) => String(client.id) === String(createOrderForm.clientCompanyId))) {
       setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: String(data.clients[0].id) }));
     }
-  }, [data.clients, createOrderForm.clientCompanyId]);
+  }, [createOrderClientIdFromRoute, data.clients, createOrderForm.clientCompanyId]);
 
   useEffect(() => {
     const managers = byRole(data.users, 'MANAGER');
@@ -1783,18 +1896,19 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
   const handleSendSupportChatMessage = async (event) => {
     event.preventDefault();
-    if (!selectedSupportCompanyIdValue || !supportChatDraft.trim()) {
+    const targetCompanyId = activeSupportCompanyId || selectedSupportCompanyIdValue;
+    if (!targetCompanyId || !supportChatDraft.trim()) {
       return;
     }
 
     setSupportChatSending(true);
     setSupportChatError('');
     try {
-      await sendSupportChatMessage(selectedSupportCompanyIdValue, {
+      await sendSupportChatMessage(targetCompanyId, {
         message: supportChatDraft.trim(),
       });
       setSupportChatDraft('');
-      await reloadSupportChat(selectedSupportCompanyIdValue);
+      await reloadSupportChat(targetCompanyId);
     } catch (error) {
       handleApiError(error);
       setSupportChatError(error.message);
@@ -1931,37 +2045,51 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     const path = ROUTE_PATHS[value] || '/';
     window.history.pushState({}, '', path);
     setSelectedOrderId(null);
+    setSelectedClientId(null);
     setTab(value);
     if (!isDesktop) {
       setDrawerOpen(false);
     }
   };
 
+  const navigateToPath = (path) => {
+    const nextUrl = new URL(path, window.location.origin);
+    const nextPath = `${nextUrl.pathname}${nextUrl.search}`;
+    const currentPath = `${window.location.pathname}${window.location.search}`;
+    if (currentPath !== nextPath) {
+      window.history.pushState({}, '', nextPath);
+      const route = getNavigationState(nextPath);
+      setTab(route.tab);
+      setSelectedOrderId(route.orderId);
+      setSelectedClientId(route.clientId);
+      if (!isDesktop) {
+        setDrawerOpen(false);
+      }
+    }
+  };
+
   const navigateToOrder = (orderId) => {
-    window.history.pushState({}, '', `/orders/${orderId}`);
+    navigateToPath(`/orders/${orderId}`);
     setTab('orders');
     setSelectedOrderId(orderId);
+    setSelectedClientId(null);
     if (!isDesktop) {
       setDrawerOpen(false);
     }
   };
 
   const navigateBackToOrders = () => {
-    window.history.pushState({}, '', '/orders');
+    navigateToPath('/orders');
     setTab('orders');
     setSelectedOrderId(null);
+    setSelectedClientId(null);
   };
 
-  const navigateToPath = (path) => {
-    if (window.location.pathname !== path) {
-      window.history.pushState({}, '', path);
-      const route = getNavigationState(path);
-      setTab(route.tab);
-      setSelectedOrderId(route.orderId);
-      if (!isDesktop) {
-        setDrawerOpen(false);
-      }
-    }
+  const navigateToClient = (clientId) => {
+    navigateToPath(`/clients/${clientId}`);
+    setTab('client-detail');
+    setSelectedOrderId(null);
+    setSelectedClientId(clientId);
   };
 
   const drawerContent = (
@@ -2488,6 +2616,100 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     );
   };
 
+  const renderClientPage = () => {
+    if (!selectedClientId) {
+      return null;
+    }
+
+    if (!selectedClient && auth.role !== 'ADMIN' && auth.role !== 'MANAGER') {
+      return (
+        <SectionCard
+          title="Клиент не найден"
+          subtitle="Возможно, у вас нет доступа к этой компании."
+          action={
+            <Button variant="outlined" onClick={() => navigateToPath('/clients')}>
+              Назад к клиентам
+            </Button>
+          }
+        >
+          <EmptyState title="Недоступная карточка" subtitle="Вернитесь к списку клиентов и откройте доступную компанию." />
+        </SectionCard>
+      );
+    }
+
+    const clientName = selectedClient?.name || 'Клиент';
+    const clientOrders = selectedClientOrders;
+
+    return (
+      <Stack spacing={2.2}>
+        <Paper sx={{ p: 2.5, bgcolor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(18px)' }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            justifyContent="space-between"
+          >
+            <Box>
+              <Typography variant="h5">{clientName}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Карточка клиента с его заказами и общим чатом поддержки.
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {(auth.role === 'ADMIN' || auth.role === 'MANAGER') ? (
+                <Button
+                  variant="contained"
+                  onClick={() => navigateToPath(`/create-order?clientId=${selectedClientId}`)}
+                >
+                  Создать заказ
+                </Button>
+              ) : null}
+              <Button variant="outlined" onClick={() => navigateToPath('/clients')}>
+                Назад к клиентам
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <Grid container spacing={2.2}>
+          <Grid item xs={12} lg={7}>
+            <SectionCard
+              title="Заказы клиента"
+              subtitle="Все карточки по выбранной компании"
+              action={<Chip label={`${clientOrders.length}`} size="small" variant="outlined" />}
+            >
+              {clientOrders.length ? (
+                renderOrderList(clientOrders)
+              ) : (
+                <EmptyState title="Заказов пока нет" subtitle="После создания заказа он появится в этом списке." />
+              )}
+            </SectionCard>
+          </Grid>
+          <Grid item xs={12} lg={5}>
+            {auth.role === 'ADMIN' || auth.role === 'MANAGER' || (auth.role === 'CLIENT' && selectedClientId === auth.clientCompanyId) ? (
+              <Stack spacing={2.2}>
+                <ChatPanel
+                  title="Чат поддержки"
+                  subtitle="Клиент пишет запрос, а менеджер или администратор отвечает в том же диалоге."
+                  messages={supportChatMessages}
+                  loading={supportChatLoading}
+                  error={supportChatError}
+                  draft={supportChatDraft}
+                  onDraftChange={setSupportChatDraft}
+                  onSend={handleSendSupportChatMessage}
+                  sending={supportChatSending}
+                  scrollRef={supportChatScrollRef}
+                  currentRole={auth.role}
+                  currentName={auth.fullName}
+                />
+              </Stack>
+            ) : null}
+          </Grid>
+        </Grid>
+      </Stack>
+    );
+  };
+
   const renderOrdersWorkspace = (list) => {
     if (auth.role === 'CLIENT' || auth.role === 'MANAGER') {
       return (
@@ -2757,7 +2979,21 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       <Stack spacing={1.2}>
         {filteredClients.length ? (
           filteredClients.map((client) => (
-            <Paper key={client.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+            <Paper
+              key={client.id}
+              variant="outlined"
+              onClick={() => navigateToClient(client.id)}
+              sx={{
+                p: 2,
+                borderRadius: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  boxShadow: '0 8px 22px rgba(60,64,67,0.10)',
+                },
+              }}
+            >
               <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                 <Box>
                   <Typography variant="subtitle1">{client.name}</Typography>
@@ -2818,6 +3054,122 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       </Box>
     </SectionCard>
   );
+
+  const renderCreateOrderPage = () => {
+    const selectedClientLabel = data.clients.find((client) => String(client.id) === String(createOrderForm.clientCompanyId))?.name || '';
+
+    return (
+      <SectionCard
+        title="Новый заказ"
+        subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту"
+        action={
+          <Button variant="outlined" onClick={() => {
+            if (selectedClientId && (tab === 'client-detail' || createOrderClientIdFromRoute)) {
+              navigateToClient(selectedClientId);
+              return;
+            }
+            navigateToPath('/orders');
+          }}>
+            Назад
+          </Button>
+        }
+      >
+        <Box component="form" onSubmit={handleCreateOrder}>
+          <Stack spacing={2}>
+            {createOrderClientIdFromRoute ? (
+              <Alert severity="info">
+                Клиент подставлен автоматически: {selectedClientLabel || `ID ${createOrderClientIdFromRoute}`}
+              </Alert>
+            ) : null}
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  label="Номер заказа"
+                  value={createOrderForm.orderNumber}
+                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, orderNumber: event.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <TextField
+                  label="Название"
+                  value={createOrderForm.title}
+                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, title: event.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Описание"
+                  value={createOrderForm.description}
+                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
+                  multiline
+                  minRows={4}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField select label="Клиент" value={createOrderForm.clientCompanyId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
+                  {data.clients.map((client) => (
+                    <MenuItem key={client.id} value={client.id}>
+                      {client.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField select label="Менеджер" value={createOrderForm.managerId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, managerId: event.target.value }))}>
+                  {byRole(data.users, 'MANAGER').map((user) => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {user.fullName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField select label="Исполнитель" value={createOrderForm.executorId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, executorId: event.target.value }))}>
+                  {byRole(data.users, 'EXECUTOR').map((user) => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {user.fullName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField select label="Приоритет" value={createOrderForm.priority} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, priority: event.target.value }))}>
+                  {data.priorities.map((priority) => (
+                    <MenuItem key={priority.value} value={priority.value}>
+                      {priority.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  type="date"
+                  label="План"
+                  InputLabelProps={{ shrink: true }}
+                  value={createOrderForm.plannedDate}
+                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, plannedDate: event.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  type="date"
+                  label="Дедлайн"
+                  InputLabelProps={{ shrink: true }}
+                  value={createOrderForm.dueDate}
+                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, dueDate: event.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Button type="submit" variant="contained" disabled={actionLoading}>
+                  Создать заказ
+                </Button>
+              </Grid>
+            </Grid>
+          </Stack>
+        </Box>
+      </SectionCard>
+    );
+  };
 
   const renderStatuses = () => (
     <Grid container spacing={2.2}>
@@ -2943,99 +3295,11 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
             {tab === 'dashboard' ? renderDashboard() : null}
             {selectedOrderId ? renderOrderPage() : null}
+            {!selectedOrderId && tab === 'client-detail' ? renderClientPage() : null}
             {!selectedOrderId && (tab === 'orders' || tab === 'tasks') ? renderOrdersWorkspace(filteredOrders) : null}
             {!selectedOrderId && tab === 'support-chat' ? renderSupportChatSection() : null}
             {!selectedOrderId && tab === 'create-client' ? renderCreateClientPage() : null}
-            {!selectedOrderId && tab === 'create-order' ? (
-              <SectionCard title="Новый заказ" subtitle="Заполните карточку один раз, дальше заказ пойдет по маршруту">
-                <Box component="form" onSubmit={handleCreateOrder}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        label="Номер заказа"
-                        value={createOrderForm.orderNumber}
-                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, orderNumber: event.target.value }))}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={8}>
-                      <TextField
-                        label="Название"
-                        value={createOrderForm.title}
-                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, title: event.target.value }))}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        label="Описание"
-                        value={createOrderForm.description}
-                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
-                        multiline
-                        minRows={4}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField select label="Клиент" value={createOrderForm.clientCompanyId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
-                        {data.clients.map((client) => (
-                          <MenuItem key={client.id} value={client.id}>
-                            {client.name}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField select label="Менеджер" value={createOrderForm.managerId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, managerId: event.target.value }))}>
-                        {byRole(data.users, 'MANAGER').map((user) => (
-                          <MenuItem key={user.id} value={user.id}>
-                            {user.fullName}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField select label="Исполнитель" value={createOrderForm.executorId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, executorId: event.target.value }))}>
-                        {byRole(data.users, 'EXECUTOR').map((user) => (
-                          <MenuItem key={user.id} value={user.id}>
-                            {user.fullName}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField select label="Приоритет" value={createOrderForm.priority} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, priority: event.target.value }))}>
-                        {data.priorities.map((priority) => (
-                          <MenuItem key={priority.value} value={priority.value}>
-                            {priority.label}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        type="date"
-                        label="План"
-                        InputLabelProps={{ shrink: true }}
-                        value={createOrderForm.plannedDate}
-                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, plannedDate: event.target.value }))}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        type="date"
-                        label="Дедлайн"
-                        InputLabelProps={{ shrink: true }}
-                        value={createOrderForm.dueDate}
-                        onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, dueDate: event.target.value }))}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Button type="submit" variant="contained" disabled={actionLoading}>
-                        Создать заказ
-                      </Button>
-                    </Grid>
-                  </Grid>
-                </Box>
-              </SectionCard>
-            ) : null}
+            {!selectedOrderId && tab === 'create-order' ? renderCreateOrderPage() : null}
             {!selectedOrderId && tab === 'users' ? renderUsers() : null}
             {!selectedOrderId && tab === 'clients' ? renderClients() : null}
             {!selectedOrderId && tab === 'statuses' ? renderStatuses() : null}
@@ -3061,11 +3325,11 @@ function App() {
   const [auth, setAuth] = useState(null);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname + window.location.search);
 
   useEffect(() => {
     const syncPath = () => {
-      setCurrentPath(window.location.pathname);
+      setCurrentPath(window.location.pathname + window.location.search);
     };
 
     window.addEventListener('popstate', syncPath);
@@ -3096,7 +3360,7 @@ function App() {
   }, []);
 
   const navigateTo = (path) => {
-    if (window.location.pathname !== path) {
+    if (window.location.pathname + window.location.search !== path) {
       window.history.pushState({}, '', path);
       setCurrentPath(path);
     }
@@ -3114,7 +3378,7 @@ function App() {
     navigateTo('/');
   };
 
-  const normalizedPath = currentPath.replace(/\/+$/, '') || '/';
+  const normalizedPath = currentPath.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
   const isLandingPage = normalizedPath === '/';
   const initialAuthMode = normalizedPath === '/register' ? 'register' : 'login';
 

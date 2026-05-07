@@ -70,6 +70,7 @@ public final class ApiMapper {
                 order.getStatus().getLabel(),
                 order.getPriority().name(),
                 order.getPriority().getLabel(),
+                order.getClientCompany() == null ? null : order.getClientCompany().getId(),
                 order.getClientCompany() == null ? null : order.getClientCompany().getName(),
                 order.getManager() == null ? null : order.getManager().getFullName(),
                 order.getExecutor() == null ? null : order.getExecutor().getFullName(),
