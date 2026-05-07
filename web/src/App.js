@@ -62,6 +62,8 @@ import {
   loadSupportChatMessages,
   loadSupportChatState,
   sendSupportChatMessage,
+  updateOrder,
+  updateClient,
 } from './api';
 
 const theme = createTheme({
@@ -1176,13 +1178,26 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     email: '',
     city: '',
   });
+  const [clientEditForm, setClientEditForm] = useState({
+    name: '',
+    inn: '',
+    contactPerson: '',
+    phone: '',
+    email: '',
+    city: '',
+  });
   const [statusForm, setStatusForm] = useState({ status: '', comment: '' });
+  const [assignmentForm, setAssignmentForm] = useState({ managerId: '', executorId: '' });
   const [actionLoading, setActionLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [apiErrorSeverity, setApiErrorSeverity] = useState('error');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draggedOrderId, setDraggedOrderId] = useState(null);
   const [dragOverStatus, setDragOverStatus] = useState('');
+  const [managerOrdersView, setManagerOrdersView] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get('ordersView') === 'list' ? 'list' : 'kanban';
+  });
   const [chatMessages, setChatMessages] = useState([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatLastMessageAt, setChatLastMessageAt] = useState(null);
@@ -1549,10 +1564,15 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
   useEffect(() => {
     const syncNavigationState = () => {
-      const route = getNavigationState(window.location.pathname + window.location.search);
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      const route = getNavigationState(currentUrl);
       setTab(route.tab);
       setSelectedOrderId(route.orderId);
       setSelectedClientId(route.clientId);
+      if (route.tab === 'orders' && auth.role === 'MANAGER') {
+        const searchParams = new URLSearchParams(window.location.search);
+        setManagerOrdersView(searchParams.get('ordersView') === 'list' ? 'list' : 'kanban');
+      }
     };
 
     syncNavigationState();
@@ -1560,7 +1580,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     return () => {
       window.removeEventListener('popstate', syncNavigationState);
     };
-  }, []);
+  }, [auth.role]);
 
   const refreshWorkspace = async (preferOrderId = selectedOrderId) => {
     setApiError('');
@@ -1623,8 +1643,26 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         status: selectedOrder.status,
         comment: '',
       }));
+      setAssignmentForm({
+        managerId: selectedOrder.manager?.id ? String(selectedOrder.manager.id) : '',
+        executorId: selectedOrder.executor?.id ? String(selectedOrder.executor.id) : '',
+      });
     }
   }, [selectedOrder]);
+
+  useEffect(() => {
+    if (!selectedClient) {
+      return;
+    }
+    setClientEditForm({
+      name: selectedClient.name || '',
+      inn: selectedClient.inn || '',
+      contactPerson: selectedClient.contactPerson || '',
+      phone: selectedClient.phone || '',
+      email: selectedClient.email || '',
+      city: selectedClient.city || '',
+    });
+  }, [selectedClient]);
 
   useEffect(() => {
     chatLastMessageAtRef.current = chatLastMessageAt;
@@ -2018,6 +2056,24 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     }
   };
 
+  const handleUpdateClient = async (event) => {
+    event.preventDefault();
+    if (!selectedClientId) {
+      return;
+    }
+    setActionLoading(true);
+    setApiError('');
+    try {
+      const updated = await updateClient(selectedClientId, clientEditForm);
+      await handleRefresh();
+      showMessage(`Клиент ${updated.name} обновлён`);
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleChangeStatus = async (event) => {
     event.preventDefault();
     if (!selectedOrder) return;
@@ -2031,6 +2087,26 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       setOrderDetails((previous) => ({ ...previous, [selectedOrder.id]: detail }));
       await handleRefresh();
       showMessage('Статус обновлён');
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateAssignments = async (event) => {
+    event.preventDefault();
+    if (!selectedOrder) return;
+    setActionLoading(true);
+    setApiError('');
+    try {
+      const detail = await updateOrder(selectedOrder.id, {
+        managerId: assignmentForm.managerId ? Number(assignmentForm.managerId) : null,
+        executorId: assignmentForm.executorId ? Number(assignmentForm.executorId) : null,
+      });
+      setOrderDetails((previous) => ({ ...previous, [selectedOrder.id]: detail }));
+      await handleRefresh();
+      showMessage('Назначение заказа обновлено');
     } catch (error) {
       handleApiError(error);
     } finally {
@@ -2084,6 +2160,15 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     }
   };
 
+  const setManagerOrdersPath = (view) => {
+    setManagerOrdersView(view);
+    if (auth.role === 'MANAGER' && tab === 'orders' && !selectedOrderId) {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set('ordersView', view);
+      window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}`);
+    }
+  };
+
   const navigateToPath = (path) => {
     const nextUrl = new URL(path, window.location.origin);
     const nextPath = `${nextUrl.pathname}${nextUrl.search}`;
@@ -2094,6 +2179,9 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       setTab(route.tab);
       setSelectedOrderId(route.orderId);
       setSelectedClientId(route.clientId);
+      if (route.tab !== 'orders') {
+        setManagerOrdersView('kanban');
+      }
       if (!isDesktop) {
         setDrawerOpen(false);
       }
@@ -2111,7 +2199,9 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const navigateBackToOrders = () => {
-    navigateToPath('/orders');
+    navigateToPath(auth.role === 'MANAGER'
+      ? `/orders?ordersView=${managerOrdersView}`
+      : '/orders');
     setTab('orders');
     setSelectedOrderId(null);
     setSelectedClientId(null);
@@ -2507,6 +2597,53 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         </SectionCard>
 
         {auth.role !== 'CLIENT' ? (
+          <SectionCard title="Назначение" subtitle="Ответственные за заказ">
+            <Box component="form" onSubmit={handleUpdateAssignments}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    select
+                    label="Менеджер"
+                    value={assignmentForm.managerId}
+                    onChange={(event) => setAssignmentForm((previous) => ({ ...previous, managerId: event.target.value }))}
+                  >
+                    {byRole(data.users, 'MANAGER').map((user) => (
+                      <MenuItem key={user.id} value={String(user.id)}>
+                        {user.fullName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    select
+                    label="Исполнитель"
+                    value={assignmentForm.executorId}
+                    onChange={(event) => setAssignmentForm((previous) => ({ ...previous, executorId: event.target.value }))}
+                  >
+                    {byRole(data.users, 'EXECUTOR').map((user) => (
+                      <MenuItem key={user.id} value={String(user.id)}>
+                        {user.fullName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Можно поменять ответственных без изменения остальных данных заказа.
+                    </Typography>
+                    <Button type="submit" variant="contained" disabled={actionLoading}>
+                      Сохранить назначение
+                    </Button>
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Box>
+          </SectionCard>
+        ) : null}
+
+        {auth.role !== 'CLIENT' ? (
           <SectionCard title="Сменить статус" subtitle={`Доступно для роли ${getRoleLabel(auth.role)}`}>
             <Box component="form" onSubmit={handleChangeStatus}>
               <Grid container spacing={2}>
@@ -2703,207 +2840,319 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           </Stack>
         </Paper>
 
-        <Grid container spacing={2.2}>
-          <Grid item xs={12} lg={7}>
-            <SectionCard
-              title="Заказы клиента"
-              subtitle="Все карточки по выбранной компании"
-              action={<Chip label={`${clientOrders.length}`} size="small" variant="outlined" />}
-            >
-              {clientOrders.length ? (
-                renderOrderList(clientOrders)
-              ) : (
-                <EmptyState title="Заказов пока нет" subtitle="После создания заказа он появится в этом списке." />
-              )}
-            </SectionCard>
-          </Grid>
-          <Grid item xs={12} lg={5}>
-            {auth.role === 'ADMIN' || auth.role === 'MANAGER' || (auth.role === 'CLIENT' && selectedClientId === auth.clientCompanyId) ? (
-              <Stack spacing={2.2}>
-                <ChatPanel
-                  title="Чат поддержки"
-                  subtitle="Клиент пишет запрос, а менеджер или администратор отвечает в том же диалоге."
-                  messages={supportChatMessages}
-                  loading={supportChatLoading}
-                  error={supportChatError}
-                  draft={supportChatDraft}
-                  onDraftChange={setSupportChatDraft}
-                  onSend={handleSendSupportChatMessage}
-                  sending={supportChatSending}
-                  scrollRef={supportChatScrollRef}
-                  currentRole={auth.role}
-                  currentName={auth.fullName}
-                />
+        {(auth.role === 'ADMIN' || auth.role === 'MANAGER') ? (
+          <SectionCard
+            title="Данные клиента"
+            subtitle="Редактирование реквизитов и контактных данных"
+            action={<Chip label="Редактирование" size="small" variant="outlined" />}
+          >
+            <Box component="form" onSubmit={handleUpdateClient}>
+              <Stack spacing={2.5}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={8}>
+                    <TextField
+                      label="Название компании"
+                      value={clientEditForm.name}
+                      onChange={(event) => setClientEditForm((previous) => ({ ...previous, name: event.target.value }))}
+                      placeholder="Например, ООО «МеталлИнвест»"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      label="ИНН"
+                      value={clientEditForm.inn}
+                      onChange={(event) => setClientEditForm((previous) => ({ ...previous, inn: event.target.value }))}
+                      placeholder="10 или 12 цифр"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Контактное лицо"
+                      value={clientEditForm.contactPerson}
+                      onChange={(event) => setClientEditForm((previous) => ({ ...previous, contactPerson: event.target.value }))}
+                      placeholder="Имя и должность"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Город"
+                      value={clientEditForm.city}
+                      onChange={(event) => setClientEditForm((previous) => ({ ...previous, city: event.target.value }))}
+                      placeholder="Например, Самара"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Телефон"
+                      value={clientEditForm.phone}
+                      onChange={(event) => setClientEditForm((previous) => ({ ...previous, phone: event.target.value }))}
+                      placeholder="+7 (999) 123-45-67"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Email"
+                      value={clientEditForm.email}
+                      onChange={(event) => setClientEditForm((previous) => ({ ...previous, email: event.target.value }))}
+                      placeholder="info@company.ru"
+                    />
+                  </Grid>
+                </Grid>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Изменения сразу сохраняются в карточку клиента и влияют на выбор при создании заказов.
+                  </Typography>
+                  <Button type="submit" variant="contained" disabled={actionLoading}>
+                    Сохранить изменения
+                  </Button>
+                </Stack>
               </Stack>
-            ) : null}
-          </Grid>
-        </Grid>
+            </Box>
+          </SectionCard>
+        ) : null}
+
+        <Stack spacing={2.2}>
+          <SectionCard
+            title="Заказы клиента"
+            subtitle="Все карточки по выбранной компании"
+            action={<Chip label={`${clientOrders.length}`} size="small" variant="outlined" />}
+            sx={{ width: '100%' }}
+          >
+            {clientOrders.length ? (
+              renderOrderList(clientOrders)
+            ) : (
+              <EmptyState title="Заказов пока нет" subtitle="После создания заказа он появится в этом списке." />
+            )}
+          </SectionCard>
+
+          {auth.role === 'ADMIN' || auth.role === 'MANAGER' || (auth.role === 'CLIENT' && selectedClientId === auth.clientCompanyId) ? (
+            <ChatPanel
+              title="Чат поддержки"
+              subtitle="Клиент пишет запрос, а менеджер или администратор отвечает в том же диалоге."
+              messages={supportChatMessages}
+              loading={supportChatLoading}
+              error={supportChatError}
+              draft={supportChatDraft}
+              onDraftChange={setSupportChatDraft}
+              onSend={handleSendSupportChatMessage}
+              sending={supportChatSending}
+              scrollRef={supportChatScrollRef}
+              currentRole={auth.role}
+              currentName={auth.fullName}
+            />
+          ) : null}
+        </Stack>
       </Stack>
     );
   };
 
   const renderOrdersWorkspace = (list) => {
     if (auth.role === 'MANAGER') {
+      const isKanbanView = managerOrdersView !== 'list';
       return (
         <Stack spacing={2.2}>
           <SectionCard
             title="Заказы"
-            subtitle="Перетаскивайте карточки между колонками, чтобы быстро менять статус"
+            subtitle={isKanbanView
+              ? 'Перетаскивайте карточки между колонками, чтобы быстро менять статус'
+              : 'Откройте карточку заказа или используйте фильтры для поиска нужной записи'}
             action={
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 <Button variant="contained" onClick={() => navigateToPath('/create-order')}>
                   Новый заказ
+                </Button>
+                <Button
+                  variant={isKanbanView ? 'outlined' : 'contained'}
+                  onClick={() => setManagerOrdersPath('kanban')}
+                >
+                  Канбан
+                </Button>
+                <Button
+                  variant={!isKanbanView ? 'outlined' : 'contained'}
+                  onClick={() => setManagerOrdersPath('list')}
+                >
+                  Список
                 </Button>
                 <Chip label={`${list.length}`} size="small" variant="outlined" />
               </Stack>
             }
             sx={{ width: '100%' }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 2,
-                overflowX: 'auto',
-                pb: 1,
-                alignItems: 'flex-start',
-              }}
-            >
-              {managerKanbanStatuses.map((status) => {
-                const statusOrders = list.filter((order) => order.status === status.value);
-                const isDropActive = dragOverStatus === status.value;
+            {isKanbanView ? (
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                  overflowX: 'auto',
+                  pb: 1,
+                  alignItems: 'flex-start',
+                }}
+              >
+                {managerKanbanStatuses.map((status) => {
+                  const statusOrders = list.filter((order) => order.status === status.value);
+                  const isDropActive = dragOverStatus === status.value;
 
-                return (
-                  <Box
-                    key={status.value}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setDragOverStatus(status.value);
-                    }}
-                    onDragEnter={(event) => {
-                      event.preventDefault();
-                      setDragOverStatus(status.value);
-                    }}
-                    onDragLeave={(event) => {
-                      if (!event.currentTarget.contains(event.relatedTarget)) {
-                        setDragOverStatus((previous) => (previous === status.value ? '' : previous));
-                      }
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const orderId = Number(event.dataTransfer.getData('text/plain'));
-                      const order = list.find((item) => item.id === orderId);
-                      if (order) {
-                        moveOrderToStatus(order, status.value);
-                      } else {
-                        setDragOverStatus('');
-                      }
-                    }}
-                    sx={{
-                      minWidth: 320,
-                      flex: '1 1 320px',
-                      maxWidth: 380,
-                      p: 1.6,
-                      borderRadius: '18px',
-                      border: `1px solid ${isDropActive ? theme.palette.primary.main : 'rgba(95,99,104,0.14)'}`,
-                      bgcolor: isDropActive
-                        ? alpha(theme.palette.primary.main, 0.05)
-                        : alpha(theme.palette.background.paper, 0.95),
-                      boxShadow: '0 8px 24px rgba(60,64,67,0.06)',
-                      transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
-                    }}
-                  >
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
-                      <Box>
-                        <Typography variant="subtitle1">{status.label}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {statusOrders.length} заказ(ов)
-                        </Typography>
-                      </Box>
-                      <Chip label={statusOrders.length} size="small" variant="outlined" />
-                    </Stack>
-
-                    <Stack spacing={1.2}>
-                      {statusOrders.length ? (
-                        statusOrders.map((order) => {
-                          const isDragging = draggedOrderId === order.id;
-                          return (
-                            <Paper
-                              key={order.id}
-                              variant="outlined"
-                              draggable
-                              onDragStart={(event) => {
-                                event.dataTransfer.effectAllowed = 'move';
-                                event.dataTransfer.setData('text/plain', String(order.id));
-                                setDraggedOrderId(order.id);
-                              }}
-                              onDragEnd={() => {
-                                setDraggedOrderId(null);
-                                setDragOverStatus('');
-                              }}
-                              onClick={() => navigateToOrder(order.id)}
-                              sx={{
-                                p: 1.8,
-                                borderRadius: '14px',
-                                cursor: 'grab',
-                                backgroundColor: isDragging ? alpha(theme.palette.primary.main, 0.08) : '#fff',
-                                borderColor: isDragging ? 'primary.main' : 'divider',
-                                opacity: isDragging ? 0.75 : 1,
-                                transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
-                                '&:hover': {
-                                  transform: 'translateY(-1px)',
-                                  boxShadow: '0 8px 20px rgba(60,64,67,0.10)',
-                                  borderColor: 'primary.main',
-                                },
-                              }}
-                            >
-                              <Stack spacing={1}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-                                  <Box sx={{ minWidth: 0 }}>
-                                    <Typography variant="subtitle2" noWrap>
-                                      {order.orderNumber}
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ mt: 0.3 }}>
-                                      {order.title}
-                                    </Typography>
-                                  </Box>
-                                  <Chip label={order.priorityLabel} size="small" variant="outlined" color={getPriorityColor(order.priority)} />
-                                </Stack>
-                                <Typography variant="caption" color="text.secondary">
-                                  {order.clientName}
-                                </Typography>
-                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                  <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
-                                  {order.dueDate ? (
-                                    <Chip label={`Дедлайн ${formatDate(order.dueDate)}`} size="small" variant="outlined" />
-                                  ) : null}
-                                </Stack>
-                              </Stack>
-                            </Paper>
-                          );
-                        })
-                      ) : (
-                        <Box
-                          sx={{
-                            minHeight: 120,
-                            borderRadius: '14px',
-                            border: '1px dashed rgba(95,99,104,0.28)',
-                            bgcolor: 'rgba(26,115,232,0.03)',
-                            display: 'grid',
-                            placeItems: 'center',
-                            px: 2,
-                            textAlign: 'center',
-                          }}
-                        >
+                  return (
+                    <Box
+                      key={status.value}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setDragOverStatus(status.value);
+                      }}
+                      onDragEnter={(event) => {
+                        event.preventDefault();
+                        setDragOverStatus(status.value);
+                      }}
+                      onDragLeave={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget)) {
+                          setDragOverStatus((previous) => (previous === status.value ? '' : previous));
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const orderId = Number(event.dataTransfer.getData('text/plain'));
+                        const order = list.find((item) => item.id === orderId);
+                        if (order) {
+                          moveOrderToStatus(order, status.value);
+                        } else {
+                          setDragOverStatus('');
+                        }
+                      }}
+                      sx={{
+                        minWidth: 320,
+                        flex: '1 1 320px',
+                        maxWidth: 380,
+                        p: 1.6,
+                        borderRadius: '18px',
+                        border: `1px solid ${isDropActive ? theme.palette.primary.main : 'rgba(95,99,104,0.14)'}`,
+                        bgcolor: isDropActive
+                          ? alpha(theme.palette.primary.main, 0.05)
+                          : alpha(theme.palette.background.paper, 0.95),
+                        boxShadow: '0 8px 24px rgba(60,64,67,0.06)',
+                        transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
+                      }}
+                    >
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
+                        <Box>
+                          <Typography variant="subtitle1">{status.label}</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Перетащите сюда карточку заказа
+                            {statusOrders.length} заказ(ов)
                           </Typography>
                         </Box>
-                      )}
-                    </Stack>
-                  </Box>
-                );
-              })}
-            </Box>
+                        <Chip label={statusOrders.length} size="small" variant="outlined" />
+                      </Stack>
+
+                      <Stack spacing={1.2}>
+                        {statusOrders.length ? (
+                          statusOrders.map((order) => {
+                            const isDragging = draggedOrderId === order.id;
+                            return (
+                              <Paper
+                                key={order.id}
+                                variant="outlined"
+                                draggable
+                                onDragStart={(event) => {
+                                  event.dataTransfer.effectAllowed = 'move';
+                                  event.dataTransfer.setData('text/plain', String(order.id));
+                                  setDraggedOrderId(order.id);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedOrderId(null);
+                                  setDragOverStatus('');
+                                }}
+                                onClick={() => navigateToOrder(order.id)}
+                                sx={{
+                                  p: 1.8,
+                                  borderRadius: '14px',
+                                  cursor: 'grab',
+                                  backgroundColor: isDragging ? alpha(theme.palette.primary.main, 0.08) : '#fff',
+                                  borderColor: isDragging ? 'primary.main' : 'divider',
+                                  opacity: isDragging ? 0.75 : 1,
+                                  transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                                  '&:hover': {
+                                    transform: 'translateY(-1px)',
+                                    boxShadow: '0 8px 20px rgba(60,64,67,0.10)',
+                                    borderColor: 'primary.main',
+                                  },
+                                }}
+                              >
+                                <Stack spacing={1}>
+                                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+                                    <Box sx={{ minWidth: 0 }}>
+                                      <Typography variant="subtitle2" noWrap>
+                                        {order.orderNumber}
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ mt: 0.3 }}>
+                                        {order.title}
+                                      </Typography>
+                                    </Box>
+                                    <Chip label={order.priorityLabel} size="small" variant="outlined" color={getPriorityColor(order.priority)} />
+                                  </Stack>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {order.clientName}
+                                  </Typography>
+                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
+                                    {order.dueDate ? (
+                                      <Chip label={`Дедлайн ${formatDate(order.dueDate)}`} size="small" variant="outlined" />
+                                    ) : null}
+                                  </Stack>
+                                </Stack>
+                              </Paper>
+                            );
+                          })
+                        ) : (
+                          <Box
+                            sx={{
+                              minHeight: 120,
+                              borderRadius: '14px',
+                              border: '1px dashed rgba(95,99,104,0.28)',
+                              bgcolor: 'rgba(26,115,232,0.03)',
+                              display: 'grid',
+                              placeItems: 'center',
+                              px: 2,
+                              textAlign: 'center',
+                            }}
+                          >
+                            <Typography variant="body2" color="text.secondary">
+                              Перетащите сюда карточку заказа
+                            </Typography>
+                          </Box>
+                        )}
+                      </Stack>
+                    </Box>
+                  );
+                })}
+              </Box>
+            ) : (
+              <Stack spacing={1.2}>
+                <ListControls
+                  search={orderFilters.search}
+                  onSearchChange={(value) => setOrderFilters((previous) => ({ ...previous, search: value }))}
+                  searchLabel="Поиск заказов"
+                  searchPlaceholder="Номер, название, клиент"
+                  sortValue={orderFilters.sort}
+                  onSortChange={(value) => setOrderFilters((previous) => ({ ...previous, sort: value }))}
+                  sortOptions={orderSortOptions}
+                  filters={[
+                    {
+                      label: 'Статус',
+                      value: orderFilters.status,
+                      onChange: (value) => setOrderFilters((previous) => ({ ...previous, status: value })),
+                      options: orderStatusOptions,
+                    },
+                    {
+                      label: 'Приоритет',
+                      value: orderFilters.priority,
+                      onChange: (value) => setOrderFilters((previous) => ({ ...previous, priority: value })),
+                      options: orderPriorityOptions,
+                    },
+                  ]}
+                />
+                {renderOrderList(list)}
+              </Stack>
+            )}
           </SectionCard>
         </Stack>
       );
