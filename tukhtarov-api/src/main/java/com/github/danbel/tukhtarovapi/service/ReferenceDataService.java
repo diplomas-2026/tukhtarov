@@ -56,7 +56,7 @@ public class ReferenceDataService {
 
     @Transactional(readOnly = true)
     public List<UserDto> users(AuthenticatedUser currentUser) {
-        ensureAdmin(currentUser);
+        ensureAdminOrManager(currentUser);
         return appUserRepository.findAll()
                 .stream()
                 .map(ApiMapper::toUserDto)
@@ -70,7 +70,7 @@ public class ReferenceDataService {
 
     @Transactional(readOnly = true)
     public List<ClientDto> clients(AuthenticatedUser currentUser) {
-        ensureAdmin(currentUser);
+        ensureAdminOrManager(currentUser);
         return clientCompanyRepository.findAll()
                 .stream()
                 .map(client -> ApiMapper.toClientDto(client, productionOrderRepository.findByClientCompanyIdOrderByCreatedAtDesc(client.getId()).size()))
@@ -194,6 +194,12 @@ public class ReferenceDataService {
     private void ensureAdmin(AuthenticatedUser currentUser) {
         if (currentUser != null && currentUser.role() != UserRole.ADMIN) {
             throw new org.springframework.security.access.AccessDeniedException("Только администратор может выполнять это действие");
+        }
+    }
+
+    private void ensureAdminOrManager(AuthenticatedUser currentUser) {
+        if (currentUser != null && currentUser.role() != UserRole.ADMIN && currentUser.role() != UserRole.MANAGER) {
+            throw new org.springframework.security.access.AccessDeniedException("Недостаточно прав для просмотра данных");
         }
     }
 }
