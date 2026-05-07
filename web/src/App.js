@@ -2493,9 +2493,20 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       return (
         <Stack spacing={2.2}>
           <SectionCard
-            title="Мои заказы"
-            subtitle="Откройте карточку, чтобы перейти к подробностям заказа"
-            action={<Chip label={`${list.length}`} size="small" variant="outlined" />}
+            title={auth.role === 'MANAGER' ? 'Заказы' : 'Мои заказы'}
+            subtitle={auth.role === 'MANAGER'
+              ? 'Откройте карточку заказа или создайте новый заказ для клиента'
+              : 'Откройте карточку, чтобы перейти к подробностям заказа'}
+            action={
+              <Stack direction="row" spacing={1} alignItems="center">
+                {auth.role === 'MANAGER' ? (
+                  <Button variant="contained" onClick={() => navigateToPath('/create-order')}>
+                    Новый заказ
+                  </Button>
+                ) : null}
+                <Chip label={`${list.length}`} size="small" variant="outlined" />
+              </Stack>
+            }
             sx={{ width: '100%' }}
           >
             <ListControls
