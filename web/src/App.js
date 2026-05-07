@@ -1431,19 +1431,39 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   }, [supportChatFilters, supportChatMessages]);
 
   const orderStatusOptions = useMemo(
-    () => [
-      { value: 'ALL', label: 'Все статусы' },
-      ...data.statuses.map((status) => ({ value: status.value, label: status.label })),
-    ],
-    [data.statuses],
+    () => {
+      const sourceStatuses = data.statuses.length
+        ? data.statuses
+        : [...new Map(
+            data.orders
+              .filter((order) => order.status)
+              .map((order) => [order.status, { value: order.status, label: order.statusLabel || order.status }]),
+          ).values()];
+
+      return [
+        { value: 'ALL', label: 'Все статусы' },
+        ...sourceStatuses,
+      ];
+    },
+    [data.orders, data.statuses],
   );
 
   const orderPriorityOptions = useMemo(
-    () => [
-      { value: 'ALL', label: 'Все приоритеты' },
-      ...data.priorities.map((priority) => ({ value: priority.value, label: priority.label })),
-    ],
-    [data.priorities],
+    () => {
+      const sourcePriorities = data.priorities.length
+        ? data.priorities
+        : [...new Map(
+            data.orders
+              .filter((order) => order.priority)
+              .map((order) => [order.priority, { value: order.priority, label: order.priorityLabel || order.priority }]),
+          ).values()];
+
+      return [
+        { value: 'ALL', label: 'Все приоритеты' },
+        ...sourcePriorities,
+      ];
+    },
+    [data.orders, data.priorities],
   );
 
   const userRoleOptions = useMemo(
