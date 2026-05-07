@@ -3018,40 +3018,159 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const renderCreateClientPage = () => (
     <SectionCard
       title="Новый клиент"
-      subtitle="Добавление компании-заказчика"
+      subtitle="Добавление компании-заказчика с контактами и реквизитами"
       action={
         <Button variant="outlined" onClick={() => navigateToPath('/clients')}>
           Назад к клиентам
         </Button>
       }
     >
-      <Box component="form" onSubmit={handleCreateClient}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <TextField label="Название компании" value={createClientForm.name} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, name: event.target.value }))} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField label="ИНН" value={createClientForm.inn} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, inn: event.target.value }))} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField label="Контактное лицо" value={createClientForm.contactPerson} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, contactPerson: event.target.value }))} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField label="Телефон" value={createClientForm.phone} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, phone: event.target.value }))} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField label="Email" value={createClientForm.email} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, email: event.target.value }))} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField label="Город" value={createClientForm.city} onChange={(event) => setCreateClientForm((previous) => ({ ...previous, city: event.target.value }))} />
-          </Grid>
-          <Grid item xs={12}>
-            <Button type="submit" variant="contained" disabled={actionLoading}>
-              Создать клиента
-            </Button>
-          </Grid>
+      <Grid container spacing={3}>
+        <Grid item xs={12} lg={8}>
+          <Box component="form" onSubmit={handleCreateClient}>
+            <Stack spacing={2.5}>
+              <Box
+                sx={{
+                  p: 2.2,
+                  borderRadius: '16px',
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  border: '1px solid rgba(26,115,232,0.10)',
+                }}
+              >
+                <Typography variant="subtitle1">Основные данные</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Укажите название компании и ИНН, чтобы карточка клиента была понятной для команды.
+                </Typography>
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={8}>
+                  <TextField
+                    label="Название компании"
+                    value={createClientForm.name}
+                    onChange={(event) => setCreateClientForm((previous) => ({ ...previous, name: event.target.value }))}
+                    placeholder="Например, ООО «МеталлИнвест»"
+                    helperText="Полное название компании без сокращений"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="ИНН"
+                    value={createClientForm.inn}
+                    onChange={(event) => setCreateClientForm((previous) => ({ ...previous, inn: event.target.value }))}
+                    placeholder="10 или 12 цифр"
+                    helperText="Налоговый идентификатор"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Контактное лицо"
+                    value={createClientForm.contactPerson}
+                    onChange={(event) => setCreateClientForm((previous) => ({ ...previous, contactPerson: event.target.value }))}
+                    placeholder="Имя и должность"
+                    helperText="Кто отвечает за согласование"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Город"
+                    value={createClientForm.city}
+                    onChange={(event) => setCreateClientForm((previous) => ({ ...previous, city: event.target.value }))}
+                    placeholder="Например, Самара"
+                  />
+                </Grid>
+              </Grid>
+
+              <Box
+                sx={{
+                  p: 2.2,
+                  borderRadius: '16px',
+                  bgcolor: alpha(theme.palette.secondary.main, 0.04),
+                  border: '1px solid rgba(15,157,88,0.10)',
+                }}
+              >
+                <Typography variant="subtitle1">Контакты</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Эти данные помогают быстро связаться с клиентом, если нужно уточнить детали заказа.
+                </Typography>
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Телефон"
+                    value={createClientForm.phone}
+                    onChange={(event) => setCreateClientForm((previous) => ({ ...previous, phone: event.target.value }))}
+                    placeholder="+7 (999) 123-45-67"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Email"
+                    value={createClientForm.email}
+                    onChange={(event) => setCreateClientForm((previous) => ({ ...previous, email: event.target.value }))}
+                    placeholder="info@company.ru"
+                  />
+                </Grid>
+              </Grid>
+
+              <Divider />
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  После сохранения клиент появится в общем списке и его можно будет выбрать при создании заказов.
+                </Typography>
+                <Button type="submit" variant="contained" disabled={actionLoading}>
+                  Создать клиента
+                </Button>
+              </Stack>
+            </Stack>
+          </Box>
         </Grid>
-      </Box>
+
+        <Grid item xs={12} lg={4}>
+          <Stack spacing={2.2}>
+            <Card sx={{ background: 'linear-gradient(180deg, #fff 0%, rgba(26,115,232,0.04) 100%)' }}>
+              <CardContent sx={{ p: 2.5 }}>
+                <Stack spacing={1.5}>
+                  <Typography variant="h6">Что важно заполнить</Typography>
+                  <Stack spacing={1}>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '14px' }}>
+                      <Typography variant="subtitle2">Название</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Чтобы менеджер легко понял, с кем работает.
+                      </Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '14px' }}>
+                      <Typography variant="subtitle2">Контактное лицо</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Человек, который будет вести коммуникацию.
+                      </Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '14px' }}>
+                      <Typography variant="subtitle2">Телефон и email</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Для оперативной связи по заказам и согласованиям.
+                      </Typography>
+                    </Paper>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent sx={{ p: 2.5 }}>
+                <Stack spacing={1.2}>
+                  <Typography variant="h6">Как это выглядит дальше</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    После создания карточка клиента появится в разделе клиентов, а затем по нему можно будет открыть заказы и чат поддержки.
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Stack>
+        </Grid>
+      </Grid>
     </SectionCard>
   );
 
@@ -3074,99 +3193,191 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           </Button>
         }
       >
-        <Box component="form" onSubmit={handleCreateOrder}>
-          <Stack spacing={2}>
-            {createOrderClientIdFromRoute ? (
-              <Alert severity="info">
-                Клиент подставлен автоматически: {selectedClientLabel || `ID ${createOrderClientIdFromRoute}`}
-              </Alert>
-            ) : null}
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  label="Номер заказа"
-                  value={createOrderForm.orderNumber}
-                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, orderNumber: event.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} md={8}>
-                <TextField
-                  label="Название"
-                  value={createOrderForm.title}
-                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, title: event.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Описание"
-                  value={createOrderForm.description}
-                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
-                  multiline
-                  minRows={4}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField select label="Клиент" value={createOrderForm.clientCompanyId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
-                  {data.clients.map((client) => (
-                    <MenuItem key={client.id} value={client.id}>
-                      {client.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField select label="Менеджер" value={createOrderForm.managerId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, managerId: event.target.value }))}>
-                  {byRole(data.users, 'MANAGER').map((user) => (
-                    <MenuItem key={user.id} value={user.id}>
-                      {user.fullName}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField select label="Исполнитель" value={createOrderForm.executorId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, executorId: event.target.value }))}>
-                  {byRole(data.users, 'EXECUTOR').map((user) => (
-                    <MenuItem key={user.id} value={user.id}>
-                      {user.fullName}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField select label="Приоритет" value={createOrderForm.priority} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, priority: event.target.value }))}>
-                  {data.priorities.map((priority) => (
-                    <MenuItem key={priority.value} value={priority.value}>
-                      {priority.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  type="date"
-                  label="План"
-                  InputLabelProps={{ shrink: true }}
-                  value={createOrderForm.plannedDate}
-                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, plannedDate: event.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  type="date"
-                  label="Дедлайн"
-                  InputLabelProps={{ shrink: true }}
-                  value={createOrderForm.dueDate}
-                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, dueDate: event.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button type="submit" variant="contained" disabled={actionLoading}>
-                  Создать заказ
-                </Button>
-              </Grid>
-            </Grid>
-          </Stack>
-        </Box>
+        <Grid container spacing={3}>
+          <Grid item xs={12} lg={8}>
+            <Box component="form" onSubmit={handleCreateOrder}>
+              <Stack spacing={2.5}>
+                {createOrderClientIdFromRoute ? (
+                  <Alert severity="info">
+                    Клиент выбран автоматически: {selectedClientLabel || `ID ${createOrderClientIdFromRoute}`}
+                  </Alert>
+                ) : null}
+
+                <Box
+                  sx={{
+                    p: 2.2,
+                    borderRadius: '16px',
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                    border: '1px solid rgba(26,115,232,0.10)',
+                  }}
+                >
+                  <Typography variant="subtitle1">Основная информация</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Начните с номера, названия и описания. Это поможет быстро понять суть заказа без лишних уточнений.
+                  </Typography>
+                </Box>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      label="Номер заказа"
+                      value={createOrderForm.orderNumber}
+                      onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, orderNumber: event.target.value }))}
+                      helperText="Внутренний номер по шаблону"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={8}>
+                    <TextField
+                      label="Название"
+                      value={createOrderForm.title}
+                      onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, title: event.target.value }))}
+                      placeholder="Короткое, понятное название"
+                      helperText="Название, которое увидят менеджер и исполнитель"
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Описание"
+                      value={createOrderForm.description}
+                      onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
+                      multiline
+                      minRows={5}
+                      placeholder="Что нужно изготовить, в каком объеме и какие есть особенности"
+                      helperText="Чем подробнее описание, тем меньше уточнений потом понадобится"
+                    />
+                  </Grid>
+                </Grid>
+
+                <Box
+                  sx={{
+                    p: 2.2,
+                    borderRadius: '16px',
+                    bgcolor: alpha(theme.palette.secondary.main, 0.04),
+                    border: '1px solid rgba(15,157,88,0.10)',
+                  }}
+                >
+                  <Typography variant="subtitle1">Связи и сроки</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Выберите клиента, менеджера, исполнителя и даты, чтобы заказ сразу попал в рабочий маршрут.
+                  </Typography>
+                </Box>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}>
+                    <TextField select label="Клиент" value={createOrderForm.clientCompanyId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
+                      {data.clients.map((client) => (
+                        <MenuItem key={client.id} value={client.id}>
+                          {client.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField select label="Менеджер" value={createOrderForm.managerId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, managerId: event.target.value }))}>
+                      {byRole(data.users, 'MANAGER').map((user) => (
+                        <MenuItem key={user.id} value={user.id}>
+                          {user.fullName}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField select label="Исполнитель" value={createOrderForm.executorId} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, executorId: event.target.value }))}>
+                      {byRole(data.users, 'EXECUTOR').map((user) => (
+                        <MenuItem key={user.id} value={user.id}>
+                          {user.fullName}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField select label="Приоритет" value={createOrderForm.priority} onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, priority: event.target.value }))}>
+                      {data.priorities.map((priority) => (
+                        <MenuItem key={priority.value} value={priority.value}>
+                          {priority.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      type="date"
+                      label="План"
+                      InputLabelProps={{ shrink: true }}
+                      value={createOrderForm.plannedDate}
+                      onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, plannedDate: event.target.value }))}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      type="date"
+                      label="Дедлайн"
+                      InputLabelProps={{ shrink: true }}
+                      value={createOrderForm.dueDate}
+                      onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, dueDate: event.target.value }))}
+                    />
+                  </Grid>
+                </Grid>
+
+                <Divider />
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedClientLabel
+                      ? `Заказ будет создан для клиента: ${selectedClientLabel}`
+                      : 'После сохранения заказ сразу появится в списке и откроется его карточка.'}
+                  </Typography>
+                  <Button type="submit" variant="contained" disabled={actionLoading}>
+                    Создать заказ
+                  </Button>
+                </Stack>
+              </Stack>
+            </Box>
+          </Grid>
+
+          <Grid item xs={12} lg={4}>
+            <Stack spacing={2.2}>
+              <Card sx={{ background: 'linear-gradient(180deg, #fff 0%, rgba(26,115,232,0.04) 100%)' }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Stack spacing={1.5}>
+                    <Typography variant="h6">Быстрые подсказки</Typography>
+                    <Stack spacing={1}>
+                      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '14px' }}>
+                        <Typography variant="subtitle2">Номер заказа</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Должен быть понятен менеджеру и уникален для системы.
+                        </Typography>
+                      </Paper>
+                      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '14px' }}>
+                        <Typography variant="subtitle2">Клиент</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Если заказ открыт из карточки клиента, поле уже подставлено автоматически.
+                        </Typography>
+                      </Paper>
+                      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '14px' }}>
+                        <Typography variant="subtitle2">Описание</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Чем проще и конкретнее текст, тем быстрее заказ попадет в работу.
+                        </Typography>
+                      </Paper>
+                    </Stack>
+                  </Stack>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Stack spacing={1.2}>
+                    <Typography variant="h6">Что будет дальше</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      После создания заказ откроется автоматически, и вы сможете сразу обновить статус, оставить комментарий или перейти в чат.
+                    </Typography>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Stack>
+          </Grid>
+        </Grid>
       </SectionCard>
     );
   };
