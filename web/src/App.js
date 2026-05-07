@@ -1128,20 +1128,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     search: '',
     sort: 'labelAsc',
   });
-  const [historyFilters, setHistoryFilters] = useState({
-    search: '',
-    sort: 'dateDesc',
-  });
-  const [chatFilters, setChatFilters] = useState({
-    search: '',
-    sort: 'dateAsc',
-    role: 'ALL',
-  });
-  const [supportChatFilters, setSupportChatFilters] = useState({
-    search: '',
-    sort: 'dateAsc',
-    role: 'ALL',
-  });
   const [createOrderForm, setCreateOrderForm] = useState({
     orderNumber: 'IMP-2026-004',
     title: '',
@@ -1359,77 +1345,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     });
   }, [roleFilters.search, roleFilters.sort, tabs]);
 
-  const filteredHistory = useMemo(() => {
-    const detail = (selectedOrderId ? orderDetails[selectedOrderId] : null)
-      || data.orders.find((order) => order.id === selectedOrderId)
-      || null;
-    const items = detail?.history || [];
-    const query = normalizeSearchValue(historyFilters.search);
-    const base = items.filter((item) =>
-      matchesSearch([item.statusLabel, item.comment, item.changedByName, item.changedByRole], query),
-    );
-
-    return [...base].sort((a, b) => {
-      switch (historyFilters.sort) {
-        case 'dateAsc':
-          return compareDateValue(a.changedAt, b.changedAt);
-        case 'statusAsc':
-          return compareText(a.statusLabel, b.statusLabel);
-        case 'statusDesc':
-          return compareText(b.statusLabel, a.statusLabel);
-        case 'dateDesc':
-        default:
-          return compareDateValue(b.changedAt, a.changedAt);
-      }
-    });
-  }, [historyFilters, selectedOrderId, orderDetails, data.orders]);
-
-  const filteredChatMessages = useMemo(() => {
-    const query = normalizeSearchValue(chatFilters.search);
-    const base = chatMessages.filter((message) => {
-      const roleMatch = chatFilters.role === 'ALL' || message.authorRole === chatFilters.role;
-      const searchMatch = matchesSearch([message.authorName, message.authorRole, message.message], query);
-      return roleMatch && searchMatch;
-    });
-
-    return [...base].sort((a, b) => {
-      switch (chatFilters.sort) {
-        case 'dateDesc':
-          return compareDateValue(b.createdAt, a.createdAt);
-        case 'authorAsc':
-          return compareText(a.authorName, b.authorName);
-        case 'authorDesc':
-          return compareText(b.authorName, a.authorName);
-        case 'dateAsc':
-        default:
-          return compareDateValue(a.createdAt, b.createdAt);
-      }
-    });
-  }, [chatFilters, chatMessages]);
-
-  const filteredSupportChatMessages = useMemo(() => {
-    const query = normalizeSearchValue(supportChatFilters.search);
-    const base = supportChatMessages.filter((message) => {
-      const roleMatch = supportChatFilters.role === 'ALL' || message.authorRole === supportChatFilters.role;
-      const searchMatch = matchesSearch([message.authorName, message.authorRole, message.message], query);
-      return roleMatch && searchMatch;
-    });
-
-    return [...base].sort((a, b) => {
-      switch (supportChatFilters.sort) {
-        case 'dateDesc':
-          return compareDateValue(b.createdAt, a.createdAt);
-        case 'authorAsc':
-          return compareText(a.authorName, b.authorName);
-        case 'authorDesc':
-          return compareText(b.authorName, a.authorName);
-        case 'dateAsc':
-        default:
-          return compareDateValue(a.createdAt, b.createdAt);
-      }
-    });
-  }, [supportChatFilters, supportChatMessages]);
-
   const orderStatusOptions = useMemo(
     () => {
       const sourceStatuses = data.statuses.length
@@ -1489,14 +1404,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     ];
   }, [data.clients]);
 
-  const chatRoleOptions = [
-    { value: 'ALL', label: 'Все роли' },
-    { value: 'ADMIN', label: 'Администратор' },
-    { value: 'MANAGER', label: 'Менеджер' },
-    { value: 'EXECUTOR', label: 'Исполнитель' },
-    { value: 'CLIENT', label: 'Клиент' },
-  ];
-
   const orderSortOptions = [
     { value: 'updatedDesc', label: 'Сначала новые' },
     { value: 'updatedAsc', label: 'Сначала старые' },
@@ -1546,20 +1453,6 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     { value: 'labelDesc', label: 'По названию Я-А' },
     { value: 'valueAsc', label: 'По коду А-Я' },
     { value: 'valueDesc', label: 'По коду Я-А' },
-  ];
-
-  const historySortOptions = [
-    { value: 'dateDesc', label: 'Сначала новые' },
-    { value: 'dateAsc', label: 'Сначала старые' },
-    { value: 'statusAsc', label: 'По статусу А-Я' },
-    { value: 'statusDesc', label: 'По статусу Я-А' },
-  ];
-
-  const chatSortOptions = [
-    { value: 'dateAsc', label: 'Сначала старые' },
-    { value: 'dateDesc', label: 'Сначала новые' },
-    { value: 'authorAsc', label: 'По автору А-Я' },
-    { value: 'authorDesc', label: 'По автору Я-А' },
   ];
 
   const selectedOrderDetails = orderDetails[selectedOrderId] || null;
@@ -2472,18 +2365,9 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
         ) : null}
 
         <SectionCard title="История статусов" subtitle="Последовательность изменений по заказу">
-          <ListControls
-            search={historyFilters.search}
-            onSearchChange={(value) => setHistoryFilters((previous) => ({ ...previous, search: value }))}
-            searchLabel="Поиск по истории"
-            searchPlaceholder="Статус, комментарий, автор"
-            sortValue={historyFilters.sort}
-            onSortChange={(value) => setHistoryFilters((previous) => ({ ...previous, sort: value }))}
-            sortOptions={historySortOptions}
-          />
           <Stack spacing={1.2}>
-            {filteredHistory.length ? (
-              filteredHistory.map((item) => (
+            {((selectedOrderDetails || selectedOrder)?.history || []).length ? (
+              ((selectedOrderDetails || selectedOrder)?.history || []).map((item) => (
                 <Paper key={item.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
                   <Stack spacing={0.4}>
                     <Typography variant="subtitle2">{item.statusLabel}</Typography>
@@ -2512,27 +2396,10 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
     return (
       <Stack spacing={2.2}>
-        <ListControls
-          search={chatFilters.search}
-          onSearchChange={(value) => setChatFilters((previous) => ({ ...previous, search: value }))}
-          searchLabel="Поиск в чате"
-          searchPlaceholder="Автор, роль, сообщение"
-          sortValue={chatFilters.sort}
-          onSortChange={(value) => setChatFilters((previous) => ({ ...previous, sort: value }))}
-          sortOptions={chatSortOptions}
-          filters={[
-            {
-              label: 'Роль',
-              value: chatFilters.role,
-              onChange: (value) => setChatFilters((previous) => ({ ...previous, role: value })),
-              options: chatRoleOptions,
-            },
-          ]}
-        />
         <ChatPanel
           title="Чат заказа"
           subtitle="Сообщения в этом чате доступны администратору, менеджеру этого заказа и клиенту этого заказа."
-          messages={filteredChatMessages}
+          messages={chatMessages}
           loading={chatLoading}
           error={chatError}
           draft={chatDraft}
@@ -2585,27 +2452,10 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             </TextField>
           </SectionCard>
         ) : null}
-        <ListControls
-          search={supportChatFilters.search}
-          onSearchChange={(value) => setSupportChatFilters((previous) => ({ ...previous, search: value }))}
-          searchLabel="Поиск в чате"
-          searchPlaceholder="Автор, роль, сообщение"
-          sortValue={supportChatFilters.sort}
-          onSortChange={(value) => setSupportChatFilters((previous) => ({ ...previous, sort: value }))}
-          sortOptions={chatSortOptions}
-          filters={[
-            {
-              label: 'Роль',
-              value: supportChatFilters.role,
-              onChange: (value) => setSupportChatFilters((previous) => ({ ...previous, role: value })),
-              options: chatRoleOptions,
-            },
-          ]}
-        />
         <ChatPanel
           title="Чат поддержки"
           subtitle="Здесь клиент пишет запрос на новый заказ, а менеджер или администратор отвечает в том же диалоге."
-          messages={filteredSupportChatMessages}
+          messages={supportChatMessages}
           loading={supportChatLoading}
           error={supportChatError}
           draft={supportChatDraft}
