@@ -289,13 +289,18 @@ public class ProductionOrderService {
                 && order.getManager().getId().equals(currentUser.id())) {
             return order;
         }
+        if (currentUser.role() == UserRole.EXECUTOR
+                && order.getExecutor() != null
+                && order.getExecutor().getId().equals(currentUser.id())) {
+            return order;
+        }
         if (currentUser.role() == UserRole.CLIENT
                 && currentUser.clientCompanyId() != null
                 && order.getClientCompany() != null
                 && order.getClientCompany().getId().equals(currentUser.clientCompanyId())) {
             return order;
         }
-        throw new AccessDeniedException("Чат доступен только администратору, менеджеру заказа и клиенту этого заказа");
+        throw new AccessDeniedException("Чат доступен только администратору, менеджеру заказа, исполнителю и клиенту этого заказа");
     }
 
     private void appendHistory(ProductionOrder order, OrderStatus status, String comment, AuthenticatedUser currentUser) {
