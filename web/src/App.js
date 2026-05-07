@@ -65,6 +65,7 @@ import {
   updateOrder,
   updateClient,
 } from './api';
+import PublicLandingPage from './PublicLandingPage';
 
 const theme = createTheme({
   palette: {
@@ -631,6 +632,7 @@ function ListControls({
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
   const heroMetrics = [
     { value: '4 роли', label: 'Администратор, менеджер, исполнитель и клиент' },
@@ -4228,7 +4230,7 @@ function App() {
       {auth ? (
         <Workspace auth={auth} onLogout={handleLogout} snackbar={snackbar} setSnackbar={setSnackbar} />
       ) : isLandingPage ? (
-        <LandingPage
+        <PublicLandingPage
           onLogin={() => navigateTo('/login')}
           onRegister={() => navigateTo('/register')}
           snackbar={snackbar}
