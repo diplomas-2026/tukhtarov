@@ -127,126 +127,116 @@ export default function PublicLandingPage({ onLogin, onRegister, snackbar, setSn
             </CardContent>
           </Card>
 
-          <Grid container spacing={2.2} sx={{ width: '100%', m: 0 }}>
+          <Stack spacing={2.2} sx={{ width: '100%' }}>
             {services.map((service, index) => (
-              <Grid item xs={12} md={4} key={service.title}>
-                <Card sx={{ height: '100%' }}>
-                  <CardContent sx={{ p: 2.6 }}>
-                    <Stack spacing={1.3}>
-                      <Avatar
-                        sx={{
-                          bgcolor: index === 0 ? alpha('#1a73e8', 0.12) : index === 1 ? alpha('#0f9d58', 0.12) : alpha('#f29900', 0.12),
-                          color: index === 0 ? '#1a73e8' : index === 1 ? '#0f9d58' : '#f29900',
-                          width: 42,
-                          height: 42,
-                        }}
-                      >
-                        <CheckCircleRoundedIcon fontSize="small" />
-                      </Avatar>
-                      <Typography variant="subtitle1">{service.title}</Typography>
-                      <Typography variant="body2" color="text.secondary">{service.text}</Typography>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
+              <Card key={service.title} sx={{ width: '100%' }}>
+                <CardContent sx={{ p: 2.6 }}>
+                  <Stack spacing={1.3}>
+                    <Avatar
+                      sx={{
+                        bgcolor: index === 0 ? alpha('#1a73e8', 0.12) : index === 1 ? alpha('#0f9d58', 0.12) : alpha('#f29900', 0.12),
+                        color: index === 0 ? '#1a73e8' : index === 1 ? '#0f9d58' : '#f29900',
+                        width: 42,
+                        height: 42,
+                      }}
+                    >
+                      <CheckCircleRoundedIcon fontSize="small" />
+                    </Avatar>
+                    <Typography variant="subtitle1">{service.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">{service.text}</Typography>
+                  </Stack>
+                </CardContent>
+              </Card>
             ))}
-          </Grid>
+          </Stack>
 
-          <Grid container spacing={2.2} sx={{ width: '100%', m: 0 }}>
-            <Grid item xs={12} lg={7}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
-                  <Stack spacing={2}>
-                    <Typography variant="h6">Как все происходит</Typography>
-                    <Stack spacing={1.3}>
-                      {processSteps.map((step, index) => (
-                        <Paper key={step} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
-                          <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                            <Avatar sx={{ width: 28, height: 28, bgcolor: 'primary.main', fontSize: '0.8rem' }}>{index + 1}</Avatar>
-                            <Typography variant="body2" color="text.secondary" sx={{ pt: 0.3 }}>{step}</Typography>
-                          </Stack>
-                        </Paper>
-                      ))}
-                    </Stack>
+          <Stack spacing={2.2} sx={{ width: '100%' }}>
+            <Card sx={{ width: '100%' }}>
+              <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
+                <Stack spacing={2}>
+                  <Typography variant="h6">Как все происходит</Typography>
+                  <Stack spacing={1.3}>
+                    {processSteps.map((step, index) => (
+                      <Paper key={step} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+                        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                          <Avatar sx={{ width: 28, height: 28, bgcolor: 'primary.main', fontSize: '0.8rem' }}>{index + 1}</Avatar>
+                          <Typography variant="body2" color="text.secondary" sx={{ pt: 0.3 }}>{step}</Typography>
+                        </Stack>
+                      </Paper>
+                    ))}
                   </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} lg={5}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
-                  <Stack spacing={2}>
-                    <Typography variant="h6">Почему нас выбирают</Typography>
-                    <Stack spacing={1.2}>
-                      {advantages.map((item) => (
-                        <Paper key={item} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
-                          <Typography variant="body2">{item}</Typography>
-                        </Paper>
-                      ))}
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+                </Stack>
+              </CardContent>
+            </Card>
 
-          <Card>
+            <Card sx={{ width: '100%' }}>
+              <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
+                <Stack spacing={2}>
+                  <Typography variant="h6">Почему нас выбирают</Typography>
+                  <Stack spacing={1.2}>
+                    {advantages.map((item) => (
+                      <Paper key={item} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+                        <Typography variant="body2">{item}</Typography>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Stack>
+
+          <Card sx={{ width: '100%' }}>
             <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
               <Stack spacing={2.4}>
                 <Typography variant="h6">Отзывы клиентов</Typography>
-                <Grid container spacing={2.2}>
+                <Stack spacing={2.2}>
                   {testimonials.map((item) => (
-                    <Grid item xs={12} md={4} key={item.name}>
-                      <Paper variant="outlined" sx={{ p: 2.4, borderRadius: '14px', height: '100%' }}>
-                        <Stack spacing={1.2}>
-                          <Typography variant="subtitle2">{item.name}</Typography>
-                          <Typography variant="body2" color="text.secondary">{item.text}</Typography>
-                        </Stack>
-                      </Paper>
-                    </Grid>
+                    <Paper key={item.name} variant="outlined" sx={{ p: 2.4, borderRadius: '14px' }}>
+                      <Stack spacing={1.2}>
+                        <Typography variant="subtitle2">{item.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">{item.text}</Typography>
+                      </Stack>
+                    </Paper>
                   ))}
-                </Grid>
+                </Stack>
               </Stack>
             </CardContent>
           </Card>
 
-          <Grid container spacing={2.2} sx={{ width: '100%', m: 0 }}>
-            <Grid item xs={12} lg={7}>
-              <Card sx={{ height: '100%' }}>
-                <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
-                  <Stack spacing={2.2}>
-                    <Typography variant="h6">Частые вопросы</Typography>
-                    <Stack spacing={1.2}>
-                      {faqItems.map((item) => (
-                        <Paper key={item.question} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
-                          <Stack spacing={0.8}>
-                            <Typography variant="subtitle2">{item.question}</Typography>
-                            <Typography variant="body2" color="text.secondary">{item.answer}</Typography>
-                          </Stack>
-                        </Paper>
-                      ))}
-                    </Stack>
+          <Stack spacing={2.2} sx={{ width: '100%' }}>
+            <Card sx={{ width: '100%' }}>
+              <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
+                <Stack spacing={2.2}>
+                  <Typography variant="h6">Частые вопросы</Typography>
+                  <Stack spacing={1.2}>
+                    {faqItems.map((item) => (
+                      <Paper key={item.question} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+                        <Stack spacing={0.8}>
+                          <Typography variant="subtitle2">{item.question}</Typography>
+                          <Typography variant="body2" color="text.secondary">{item.answer}</Typography>
+                        </Stack>
+                      </Paper>
+                    ))}
                   </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} lg={5}>
-              <Card sx={{ height: '100%', boxShadow: '0 24px 60px rgba(60,64,67,0.14)' }}>
-                <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
-                  <Stack spacing={2.2}>
-                    <Typography variant="h6">Начать работу</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Зарегистрируйтесь или войдите, чтобы отправить заявку и отслеживать ее выполнение.
-                    </Typography>
-                    <Stack spacing={1.2}>
-                      <Button variant="contained" onClick={onRegister}>Регистрация</Button>
-                      <Button variant="outlined" onClick={onLogin}>Войти</Button>
-                    </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ width: '100%', boxShadow: '0 24px 60px rgba(60,64,67,0.14)' }}>
+              <CardContent sx={{ p: { xs: 2.6, md: 3 } }}>
+                <Stack spacing={2.2}>
+                  <Typography variant="h6">Начать работу</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Зарегистрируйтесь или войдите, чтобы отправить заявку и отслеживать ее выполнение.
+                  </Typography>
+                  <Stack spacing={1.2}>
+                    <Button variant="contained" onClick={onRegister}>Регистрация</Button>
+                    <Button variant="outlined" onClick={onLogin}>Войти</Button>
                   </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Stack>
         </Stack>
       </Box>
 
