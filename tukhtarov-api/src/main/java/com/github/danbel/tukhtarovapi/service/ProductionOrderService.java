@@ -88,6 +88,12 @@ public class ProductionOrderService {
 
     public OrderDetailsDto createOrder(CreateOrderRequest request, AuthenticatedUser currentUser) {
         ensureCanManageOrders(currentUser);
+        if (request.orderNumber() == null || request.orderNumber().isBlank()) {
+            throw new IllegalArgumentException("Номер заказа обязателен");
+        }
+        if (productionOrderRepository.existsByOrderNumberIgnoreCase(request.orderNumber().trim())) {
+            throw new IllegalArgumentException("Заказ с таким номером уже существует");
+        }
         ClientCompany clientCompany = clientCompanyRepository.findById(request.clientCompanyId())
                 .orElseThrow(() -> new IllegalArgumentException("Клиент не найден"));
 
@@ -97,7 +103,7 @@ public class ProductionOrderService {
                 .orElseThrow(() -> new IllegalArgumentException("Исполнитель не найден"));
 
         ProductionOrder order = productionOrderRepository.save(ProductionOrder.builder()
-                .orderNumber(request.orderNumber())
+                .orderNumber(request.orderNumber().trim())
                 .title(request.title())
                 .description(request.description())
                 .clientCompany(clientCompany)

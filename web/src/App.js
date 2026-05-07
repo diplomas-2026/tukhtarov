@@ -540,6 +540,20 @@ function compareDateValue(a, b) {
   return timeA - timeB;
 }
 
+function generateNextOrderNumber(orders) {
+  const currentYear = new Date().getFullYear();
+  const pattern = /^IMP-(\d{4})-(\d+)$/i;
+  const maxSequence = orders.reduce((max, order) => {
+    const match = String(order.orderNumber || '').match(pattern);
+    if (!match || Number(match[1]) !== currentYear) {
+      return max;
+    }
+    return Math.max(max, Number(match[2]));
+  }, 0);
+
+  return `IMP-${currentYear}-${String(maxSequence + 1).padStart(3, '0')}`;
+}
+
 function getPriorityWeight(priority) {
   const weights = {
     LOW: 1,
@@ -1199,7 +1213,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     sort: 'labelAsc',
   });
   const [createOrderForm, setCreateOrderForm] = useState({
-    orderNumber: 'IMP-2026-004',
+    orderNumber: '',
     title: '',
     description: '',
     clientCompanyId: '',
@@ -1590,6 +1604,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       || (auth.role === 'CLIENT' && selectedOrderDetails.clientCompany?.id === auth.clientCompanyId));
   const selectedSupportCompanyIdValue =
     auth.role === 'CLIENT' ? auth.clientCompanyId || '' : selectedSupportCompanyId;
+  const nextOrderNumber = useMemo(() => generateNextOrderNumber(data.orders), [data.orders]);
   const createOrderClientIdFromRoute = useMemo(() => {
     if (tab !== 'create-order') {
       return null;
@@ -1934,6 +1949,16 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   }, [allowedStatuses, statusForm.status]);
 
   useEffect(() => {
+    if (tab === 'create-order') {
+      setCreateOrderForm((previous) => (
+        previous.orderNumber
+          ? previous
+          : { ...previous, orderNumber: nextOrderNumber }
+      ));
+    }
+  }, [nextOrderNumber, tab]);
+
+  useEffect(() => {
     if (createOrderClientIdFromRoute) {
       setCreateOrderForm((previous) => {
         const nextClientId = String(createOrderClientIdFromRoute);
@@ -2058,6 +2083,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       });
       setCreateOrderForm((previous) => ({
         ...previous,
+        orderNumber: nextOrderNumber,
         title: '',
         description: '',
         plannedDate: '',

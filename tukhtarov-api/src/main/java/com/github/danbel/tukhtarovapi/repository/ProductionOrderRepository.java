@@ -12,4 +12,6 @@ public interface ProductionOrderRepository extends JpaRepository<ProductionOrder
     List<ProductionOrder> findByExecutorIdOrderByDueDateAsc(Long executorId);
 
     List<ProductionOrder> findByClientCompanyIdOrderByCreatedAtDesc(Long clientCompanyId);
+
+    boolean existsByOrderNumberIgnoreCase(String orderNumber);
 }
