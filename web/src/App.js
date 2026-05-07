@@ -1181,6 +1181,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   const [apiError, setApiError] = useState('');
   const [apiErrorSeverity, setApiErrorSeverity] = useState('error');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [draggedOrderId, setDraggedOrderId] = useState(null);
+  const [dragOverStatus, setDragOverStatus] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatLastMessageAt, setChatLastMessageAt] = useState(null);
@@ -1381,6 +1383,12 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     },
     [data.orders, data.statuses],
   );
+  const managerKanbanStatuses = useMemo(() => {
+    const sourceStatuses = data.statuses.length
+      ? data.statuses
+      : orderStatusOptions.filter((status) => status.value !== 'ALL');
+    return sourceStatuses.filter((status) => INTERNAL_STATUS_VALUES.has(status.value));
+  }, [data.statuses, orderStatusOptions]);
 
   const orderPriorityOptions = useMemo(
     () => {
@@ -2027,6 +2035,30 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
       handleApiError(error);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const moveOrderToStatus = async (order, nextStatus) => {
+    if (!order || order.status === nextStatus || actionLoading) {
+      return;
+    }
+
+    setActionLoading(true);
+    setApiError('');
+    try {
+      const detail = await changeOrderStatus(order.id, {
+        status: nextStatus,
+        comment: '',
+      });
+      setOrderDetails((previous) => ({ ...previous, [order.id]: detail }));
+      await refreshWorkspace(order.id);
+      showMessage(`Статус заказа ${order.orderNumber} изменён`);
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setActionLoading(false);
+      setDraggedOrderId(null);
+      setDragOverStatus('');
     }
   };
 
@@ -2711,21 +2743,180 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const renderOrdersWorkspace = (list) => {
-    if (auth.role === 'CLIENT' || auth.role === 'MANAGER') {
+    if (auth.role === 'MANAGER') {
       return (
         <Stack spacing={2.2}>
           <SectionCard
-            title={auth.role === 'MANAGER' ? 'Заказы' : 'Мои заказы'}
-            subtitle={auth.role === 'MANAGER'
-              ? 'Откройте карточку заказа или создайте новый заказ для клиента'
-              : 'Откройте карточку, чтобы перейти к подробностям заказа'}
+            title="Заказы"
+            subtitle="Перетаскивайте карточки между колонками, чтобы быстро менять статус"
             action={
               <Stack direction="row" spacing={1} alignItems="center">
-                {auth.role === 'MANAGER' ? (
-                  <Button variant="contained" onClick={() => navigateToPath('/create-order')}>
-                    Новый заказ
-                  </Button>
-                ) : null}
+                <Button variant="contained" onClick={() => navigateToPath('/create-order')}>
+                  Новый заказ
+                </Button>
+                <Chip label={`${list.length}`} size="small" variant="outlined" />
+              </Stack>
+            }
+            sx={{ width: '100%' }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2,
+                overflowX: 'auto',
+                pb: 1,
+                alignItems: 'flex-start',
+              }}
+            >
+              {managerKanbanStatuses.map((status) => {
+                const statusOrders = list.filter((order) => order.status === status.value);
+                const isDropActive = dragOverStatus === status.value;
+
+                return (
+                  <Box
+                    key={status.value}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setDragOverStatus(status.value);
+                    }}
+                    onDragEnter={(event) => {
+                      event.preventDefault();
+                      setDragOverStatus(status.value);
+                    }}
+                    onDragLeave={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget)) {
+                        setDragOverStatus((previous) => (previous === status.value ? '' : previous));
+                      }
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const orderId = Number(event.dataTransfer.getData('text/plain'));
+                      const order = list.find((item) => item.id === orderId);
+                      if (order) {
+                        moveOrderToStatus(order, status.value);
+                      } else {
+                        setDragOverStatus('');
+                      }
+                    }}
+                    sx={{
+                      minWidth: 320,
+                      flex: '1 1 320px',
+                      maxWidth: 380,
+                      p: 1.6,
+                      borderRadius: '18px',
+                      border: `1px solid ${isDropActive ? theme.palette.primary.main : 'rgba(95,99,104,0.14)'}`,
+                      bgcolor: isDropActive
+                        ? alpha(theme.palette.primary.main, 0.05)
+                        : alpha(theme.palette.background.paper, 0.95),
+                      boxShadow: '0 8px 24px rgba(60,64,67,0.06)',
+                      transition: 'border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease',
+                    }}
+                  >
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
+                      <Box>
+                        <Typography variant="subtitle1">{status.label}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {statusOrders.length} заказ(ов)
+                        </Typography>
+                      </Box>
+                      <Chip label={statusOrders.length} size="small" variant="outlined" />
+                    </Stack>
+
+                    <Stack spacing={1.2}>
+                      {statusOrders.length ? (
+                        statusOrders.map((order) => {
+                          const isDragging = draggedOrderId === order.id;
+                          return (
+                            <Paper
+                              key={order.id}
+                              variant="outlined"
+                              draggable
+                              onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed = 'move';
+                                event.dataTransfer.setData('text/plain', String(order.id));
+                                setDraggedOrderId(order.id);
+                              }}
+                              onDragEnd={() => {
+                                setDraggedOrderId(null);
+                                setDragOverStatus('');
+                              }}
+                              onClick={() => navigateToOrder(order.id)}
+                              sx={{
+                                p: 1.8,
+                                borderRadius: '14px',
+                                cursor: 'grab',
+                                backgroundColor: isDragging ? alpha(theme.palette.primary.main, 0.08) : '#fff',
+                                borderColor: isDragging ? 'primary.main' : 'divider',
+                                opacity: isDragging ? 0.75 : 1,
+                                transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                                '&:hover': {
+                                  transform: 'translateY(-1px)',
+                                  boxShadow: '0 8px 20px rgba(60,64,67,0.10)',
+                                  borderColor: 'primary.main',
+                                },
+                              }}
+                            >
+                              <Stack spacing={1}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+                                  <Box sx={{ minWidth: 0 }}>
+                                    <Typography variant="subtitle2" noWrap>
+                                      {order.orderNumber}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ mt: 0.3 }}>
+                                      {order.title}
+                                    </Typography>
+                                  </Box>
+                                  <Chip label={order.priorityLabel} size="small" variant="outlined" color={getPriorityColor(order.priority)} />
+                                </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                  {order.clientName}
+                                </Typography>
+                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                  <Chip label={order.statusLabel} color={getStatusColor(order.status)} size="small" />
+                                  {order.dueDate ? (
+                                    <Chip label={`Дедлайн ${formatDate(order.dueDate)}`} size="small" variant="outlined" />
+                                  ) : null}
+                                </Stack>
+                              </Stack>
+                            </Paper>
+                          );
+                        })
+                      ) : (
+                        <Box
+                          sx={{
+                            minHeight: 120,
+                            borderRadius: '14px',
+                            border: '1px dashed rgba(95,99,104,0.28)',
+                            bgcolor: 'rgba(26,115,232,0.03)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            px: 2,
+                            textAlign: 'center',
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            Перетащите сюда карточку заказа
+                          </Typography>
+                        </Box>
+                      )}
+                    </Stack>
+                  </Box>
+                );
+              })}
+            </Box>
+          </SectionCard>
+        </Stack>
+      );
+    }
+
+    if (auth.role === 'CLIENT') {
+      return (
+        <Stack spacing={2.2}>
+          <SectionCard
+            title="Мои заказы"
+            subtitle="Откройте карточку, чтобы перейти к подробностям заказа"
+            action={
+              <Stack direction="row" spacing={1} alignItems="center">
                 <Chip label={`${list.length}`} size="small" variant="outlined" />
               </Stack>
             }
@@ -3186,18 +3377,17 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                   helperText="Название, которое увидят менеджер и исполнитель"
                 />
               </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Описание"
-                  value={createOrderForm.description}
-                  onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
-                  multiline
-                  minRows={5}
-                  placeholder="Что нужно изготовить, в каком объеме и какие есть особенности"
-                  helperText="Чем подробнее описание, тем меньше уточнений потом понадобится"
-                />
-              </Grid>
             </Grid>
+
+            <TextField
+              label="Описание"
+              value={createOrderForm.description}
+              onChange={(event) => setCreateOrderForm((previous) => ({ ...previous, description: event.target.value }))}
+              multiline
+              minRows={5}
+              placeholder="Что нужно изготовить, в каком объеме и какие есть особенности"
+              helperText="Чем подробнее описание, тем меньше уточнений потом понадобится"
+            />
 
             <Box
               sx={{
