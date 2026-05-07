@@ -2600,47 +2600,85 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     );
   };
 
-  const renderOrdersWorkspace = (list) => (
-    <Grid container spacing={2.2}>
-      <Grid item xs={12} lg={auth.role === 'CLIENT' ? 12 : 4}>
-        <SectionCard
-          title={auth.role === 'EXECUTOR' ? 'Очередь задач' : auth.role === 'CLIENT' ? 'Мои заказы' : 'Список заказов'}
-          subtitle="Откройте карточку, чтобы работать с деталями заказа"
-          action={<Chip label={`${list.length}`} size="small" variant="outlined" />}
-        >
-          <ListControls
-            search={orderFilters.search}
-            onSearchChange={(value) => setOrderFilters((previous) => ({ ...previous, search: value }))}
-            searchLabel="Поиск заказов"
-            searchPlaceholder="Номер, название, клиент"
-            sortValue={orderFilters.sort}
-            onSortChange={(value) => setOrderFilters((previous) => ({ ...previous, sort: value }))}
-            sortOptions={orderSortOptions}
-            filters={[
-              {
-                label: 'Статус',
-                value: orderFilters.status,
-                onChange: (value) => setOrderFilters((previous) => ({ ...previous, status: value })),
-                options: orderStatusOptions,
-              },
-              {
-                label: 'Приоритет',
-                value: orderFilters.priority,
-                onChange: (value) => setOrderFilters((previous) => ({ ...previous, priority: value })),
-                options: orderPriorityOptions,
-              },
-            ]}
-          />
-          {renderOrderList(list)}
-        </SectionCard>
-      </Grid>
-      {auth.role !== 'CLIENT' ? (
+  const renderOrdersWorkspace = (list) => {
+    if (auth.role === 'CLIENT') {
+      return (
+        <Stack spacing={2.2}>
+          <SectionCard
+            title="Мои заказы"
+            subtitle="Откройте карточку, чтобы перейти к подробностям заказа"
+            action={<Chip label={`${list.length}`} size="small" variant="outlined" />}
+            sx={{ width: '100%' }}
+          >
+            <ListControls
+              search={orderFilters.search}
+              onSearchChange={(value) => setOrderFilters((previous) => ({ ...previous, search: value }))}
+              searchLabel="Поиск заказов"
+              searchPlaceholder="Номер, название, клиент"
+              sortValue={orderFilters.sort}
+              onSortChange={(value) => setOrderFilters((previous) => ({ ...previous, sort: value }))}
+              sortOptions={orderSortOptions}
+              filters={[
+                {
+                  label: 'Статус',
+                  value: orderFilters.status,
+                  onChange: (value) => setOrderFilters((previous) => ({ ...previous, status: value })),
+                  options: orderStatusOptions,
+                },
+                {
+                  label: 'Приоритет',
+                  value: orderFilters.priority,
+                  onChange: (value) => setOrderFilters((previous) => ({ ...previous, priority: value })),
+                  options: orderPriorityOptions,
+                },
+              ]}
+            />
+            {renderOrderList(list)}
+          </SectionCard>
+        </Stack>
+      );
+    }
+
+    return (
+      <Grid container spacing={2.2}>
+        <Grid item xs={12} lg={4}>
+          <SectionCard
+            title={auth.role === 'EXECUTOR' ? 'Очередь задач' : 'Список заказов'}
+            subtitle="Откройте карточку, чтобы работать с деталями заказа"
+            action={<Chip label={`${list.length}`} size="small" variant="outlined" />}
+          >
+            <ListControls
+              search={orderFilters.search}
+              onSearchChange={(value) => setOrderFilters((previous) => ({ ...previous, search: value }))}
+              searchLabel="Поиск заказов"
+              searchPlaceholder="Номер, название, клиент"
+              sortValue={orderFilters.sort}
+              onSortChange={(value) => setOrderFilters((previous) => ({ ...previous, sort: value }))}
+              sortOptions={orderSortOptions}
+              filters={[
+                {
+                  label: 'Статус',
+                  value: orderFilters.status,
+                  onChange: (value) => setOrderFilters((previous) => ({ ...previous, status: value })),
+                  options: orderStatusOptions,
+                },
+                {
+                  label: 'Приоритет',
+                  value: orderFilters.priority,
+                  onChange: (value) => setOrderFilters((previous) => ({ ...previous, priority: value })),
+                  options: orderPriorityOptions,
+                },
+              ]}
+            />
+            {renderOrderList(list)}
+          </SectionCard>
+        </Grid>
         <Grid item xs={12} lg={8}>
           {renderOrderDetail()}
         </Grid>
-      ) : null}
-    </Grid>
-  );
+      </Grid>
+    );
+  };
 
   const renderOrderPage = () => {
     if (!selectedOrderId) {
