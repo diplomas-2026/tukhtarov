@@ -181,8 +181,6 @@ const ROLE_TABS = {
     { value: 'orders', label: 'Заказы', icon: <AssignmentRoundedIcon fontSize="small" /> },
     { value: 'users', label: 'Пользователи', icon: <GroupRoundedIcon fontSize="small" /> },
     { value: 'clients', label: 'Клиенты', icon: <BusinessRoundedIcon fontSize="small" /> },
-    { value: 'statuses', label: 'Статусы', icon: <PendingActionsRoundedIcon fontSize="small" /> },
-    { value: 'support-chat', label: 'Чаты клиентов', icon: <GroupRoundedIcon fontSize="small" /> },
   ],
   MANAGER: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
@@ -221,6 +219,10 @@ const TAB_TITLES = {
   'create-client': {
     title: 'Новый клиент',
     subtitle: 'Отдельная страница для добавления новой компании-заказчика.',
+  },
+  'create-user': {
+    title: 'Новый пользователь',
+    subtitle: 'Отдельная страница для создания учетной записи сотрудника.',
   },
   tasks: {
     title: 'Мои задачи',
@@ -328,6 +330,9 @@ function getRoleLabel(role) {
 function getAllowedStatuses(statuses, role) {
   if (role === 'CLIENT') {
     return [];
+  }
+  if (role === 'ADMIN') {
+    return statuses;
   }
   if (role === 'MANAGER') {
     return statuses.filter((status) => MANAGER_EDITABLE_STATUS_VALUES.has(status.value));
@@ -644,7 +649,7 @@ function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
         minHeight: '100vh',
         position: 'relative',
         overflow: 'hidden',
-        px: 2,
+        px: { xs: 2, sm: 3, md: 4, xl: 6 },
         py: { xs: 2, md: 4 },
         background:
           'radial-gradient(circle at top left, rgba(26,115,232,0.14), transparent 32%), radial-gradient(circle at right 20%, rgba(15,157,88,0.12), transparent 24%), linear-gradient(180deg, #f8fbff 0%, #f6f8fc 100%)',
@@ -684,9 +689,14 @@ function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
         />
       </Box>
 
-      <Container maxWidth="xl" sx={{ position: 'relative' }}>
+      <Box sx={{ position: 'relative', width: '100%' }}>
         <Stack spacing={4}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ pt: 1 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ pt: 1, width: '100%' }}
+          >
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Avatar sx={{ bgcolor: 'primary.main', width: 44, height: 44 }}>И</Avatar>
               <Box>
@@ -706,7 +716,7 @@ function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
             </Stack>
           </Stack>
 
-          <Grid container spacing={3} alignItems="stretch">
+          <Grid container spacing={3} alignItems="stretch" sx={{ width: '100%', m: 0 }}>
             <Grid item xs={12} lg={7}>
               <Stack spacing={3}>
                 <Card
@@ -715,7 +725,7 @@ function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
                     background:
                       'linear-gradient(135deg, rgba(26,115,232,0.98) 0%, rgba(26,115,232,0.86) 40%, rgba(15,157,88,0.90) 100%)',
                     color: '#fff',
-                    minHeight: { xs: 'auto', lg: 540 },
+                    minHeight: { xs: 'auto', lg: 560 },
                   }}
                 >
                   <CardContent sx={{ p: { xs: 3, md: 4, lg: 5 }, height: '100%' }}>
@@ -733,15 +743,15 @@ function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
                         <Typography
                           variant="h3"
                           sx={{
-                            fontSize: { xs: '2.4rem', md: '3.4rem' },
+                            fontSize: { xs: '2.4rem', md: '3.4rem', xl: '3.75rem' },
                             lineHeight: 1.08,
-                            maxWidth: 700,
+                            maxWidth: 760,
                             fontWeight: 800,
                           }}
                         >
                           Заказы, чат с поддержкой и рабочий кабинет в одной удобной системе
                         </Typography>
-                        <Typography variant="h6" sx={{ maxWidth: 680, fontWeight: 400, color: 'rgba(255,255,255,0.92)' }}>
+                        <Typography variant="h6" sx={{ maxWidth: 760, fontWeight: 400, color: 'rgba(255,255,255,0.92)' }}>
                           Клиенты регистрируются сами, пишут запрос в общий чат, а менеджеры и администраторы превращают его в понятный рабочий процесс.
                         </Typography>
                       </Stack>
@@ -771,7 +781,7 @@ function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
                   </CardContent>
                 </Card>
 
-                <Grid container spacing={2.2}>
+                <Grid container spacing={2.2} sx={{ width: '100%', m: 0 }}>
                   {heroMetrics.map((metric) => (
                     <Grid item xs={12} sm={4} key={metric.label}>
                       <Card sx={{ height: '100%' }}>
@@ -788,7 +798,7 @@ function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
                   ))}
                 </Grid>
 
-                <Grid container spacing={2.2}>
+                <Grid container spacing={2.2} sx={{ width: '100%', m: 0 }}>
                   {featureCards.map((feature) => (
                     <Grid item xs={12} md={4} key={feature.title}>
                       <Card sx={{ height: '100%' }}>
@@ -873,7 +883,7 @@ function LandingPage({ onLogin, onRegister, snackbar, setSnackbar }) {
             </Grid>
           </Grid>
         </Stack>
-      </Container>
+      </Box>
 
       <Snackbar
         open={snackbar.open}
@@ -895,6 +905,7 @@ const ROUTE_PATHS = {
   tasks: '/tasks',
   'create-order': '/create-order',
   'create-client': '/clients/new',
+  'create-user': '/users/new',
   users: '/users',
   clients: '/clients',
   statuses: '/statuses',
@@ -929,6 +940,9 @@ function getNavigationState(pathname) {
   }
   if (normalizedPath === '/users') {
     return { tab: 'users', orderId: null, clientId: null };
+  }
+  if (normalizedPath === '/users/new') {
+    return { tab: 'create-user', orderId: null, clientId: null };
   }
   if (normalizedPath === '/clients') {
     return { tab: 'clients', orderId: null, clientId: null };
@@ -2216,9 +2230,9 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
     }
   };
 
-  const setManagerOrdersPath = (view) => {
+  const setOrdersViewPath = (view) => {
     setManagerOrdersView(view);
-    if (auth.role === 'MANAGER' && tab === 'orders' && !selectedOrderId) {
+    if ((auth.role === 'MANAGER' || auth.role === 'ADMIN') && tab === 'orders' && !selectedOrderId) {
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.set('ordersView', view);
       window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}`);
@@ -2255,7 +2269,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const navigateBackToOrders = () => {
-    navigateToPath(auth.role === 'MANAGER'
+    navigateToPath((auth.role === 'MANAGER' || auth.role === 'ADMIN')
       ? `/orders?ordersView=${managerOrdersView}`
       : '/orders');
     setTab('orders');
@@ -3208,14 +3222,17 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const renderOrdersWorkspace = (list) => {
-    if (auth.role === 'MANAGER') {
+    if (auth.role === 'ADMIN' || auth.role === 'MANAGER') {
       const isKanbanView = managerOrdersView !== 'list';
+      const canEditAnyStatus = auth.role === 'ADMIN';
       return (
         <Stack spacing={2.2}>
           <SectionCard
             title="Заказы"
             subtitle={isKanbanView
-              ? 'Синие колонки меняет менеджер, зелёные - исполнитель, серые доступны только для просмотра'
+              ? (canEditAnyStatus
+                ? 'Администратор может перемещать карточки в любые статусы'
+                : 'Синие колонки меняет менеджер, зелёные - исполнитель, серые доступны только для просмотра')
               : 'Откройте карточку заказа или используйте фильтры для поиска нужной записи'}
             action={
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -3224,13 +3241,13 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                 </Button>
                 <Button
                   variant={isKanbanView ? 'outlined' : 'contained'}
-                  onClick={() => setManagerOrdersPath('kanban')}
+                  onClick={() => setOrdersViewPath('kanban')}
                 >
                   Канбан
                 </Button>
                 <Button
                   variant={!isKanbanView ? 'outlined' : 'contained'}
-                  onClick={() => setManagerOrdersPath('list')}
+                  onClick={() => setOrdersViewPath('list')}
                 >
                   Список
                 </Button>
@@ -3240,7 +3257,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             sx={{ width: '100%' }}
           >
             {isKanbanView ? (
-              renderKanbanBoard(list, kanbanStatuses, { editableStatusValues })
+              renderKanbanBoard(list, canEditAnyStatus ? data.statuses : kanbanStatuses, canEditAnyStatus ? {} : { editableStatusValues })
             ) : (
               <Stack spacing={1.2}>
                 <ListControls
@@ -3422,16 +3439,162 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
   };
 
   const renderUsers = () => (
-    <Grid container spacing={2.2}>
-      <Grid item xs={12} md={5}>
-        <SectionCard title="Новый пользователь" subtitle="Создание учетной записи сотрудника">
-          <Box component="form" onSubmit={handleCreateUser}>
-            <Stack spacing={2}>
-              <TextField label="Логин" value={createUserForm.login} onChange={(event) => setCreateUserForm((previous) => ({ ...previous, login: event.target.value }))} />
-              <TextField label="ФИО" value={createUserForm.fullName} onChange={(event) => setCreateUserForm((previous) => ({ ...previous, fullName: event.target.value }))} />
-              <TextField label="Email" value={createUserForm.email} onChange={(event) => setCreateUserForm((previous) => ({ ...previous, email: event.target.value }))} />
-              <TextField label="Телефон" value={createUserForm.phone} onChange={(event) => setCreateUserForm((previous) => ({ ...previous, phone: event.target.value }))} />
-              <TextField label="Пароль" type="password" value={createUserForm.password} onChange={(event) => setCreateUserForm((previous) => ({ ...previous, password: event.target.value }))} />
+    <SectionCard
+      title="Пользователи"
+      subtitle="Аккаунты сотрудников и их роли"
+      action={
+        <Stack direction="row" spacing={1}>
+          <Button variant="contained" onClick={() => navigateToPath('/users/new')}>
+            Новый пользователь
+          </Button>
+          <Chip label={`${filteredUsers.length}`} size="small" variant="outlined" />
+        </Stack>
+      }
+      sx={{ width: '100%' }}
+    >
+      <ListControls
+        search={userFilters.search}
+        onSearchChange={(value) => setUserFilters((previous) => ({ ...previous, search: value }))}
+        searchLabel="Поиск пользователей"
+        searchPlaceholder="Имя, логин, email, телефон"
+        sortValue={userFilters.sort}
+        onSortChange={(value) => setUserFilters((previous) => ({ ...previous, sort: value }))}
+        sortOptions={userSortOptions}
+        filters={[
+          {
+            label: 'Роль',
+            value: userFilters.role,
+            onChange: (value) => setUserFilters((previous) => ({ ...previous, role: value })),
+            options: userRoleOptions,
+          },
+          {
+            label: 'Состояние',
+            value: userFilters.active,
+            onChange: (value) => setUserFilters((previous) => ({ ...previous, active: value })),
+            options: [
+              { value: 'ALL', label: 'Все' },
+              { value: 'ACTIVE', label: 'Активные' },
+              { value: 'INACTIVE', label: 'Отключённые' },
+            ],
+          },
+        ]}
+      />
+      <Stack spacing={1.2}>
+        {filteredUsers.length ? (
+          filteredUsers.map((user) => (
+            <Paper key={user.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                <Box>
+                  <Typography variant="subtitle1">{user.fullName}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {user.email} · {user.phone}
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
+                  <Chip label={getRoleLabel(user.role)} color="primary" size="small" />
+                  <Chip label={user.active ? 'Активен' : 'Отключён'} color={user.active ? 'success' : 'default'} size="small" />
+                </Stack>
+              </Stack>
+              {user.clientCompanyName ? (
+                <Typography variant="caption" color="text.secondary">
+                  Привязан к: {user.clientCompanyName}
+                </Typography>
+              ) : null}
+            </Paper>
+          ))
+        ) : (
+          <EmptyState title="Пользователей нет" subtitle="После создания сотрудников они появятся здесь." />
+        )}
+      </Stack>
+    </SectionCard>
+  );
+
+  const renderCreateUserPage = () => (
+    <SectionCard
+      title="Новый пользователь"
+      subtitle="Создание учетной записи сотрудника"
+      action={
+        <Button variant="outlined" onClick={() => navigateToPath('/users')}>
+          Назад к пользователям
+        </Button>
+      }
+      sx={{ width: '100%' }}
+    >
+      <Box component="form" onSubmit={handleCreateUser}>
+        <Stack spacing={2.5}>
+          <Box
+            sx={{
+              p: 2.2,
+              borderRadius: '16px',
+              bgcolor: alpha(theme.palette.primary.main, 0.04),
+              border: '1px solid rgba(26,115,232,0.10)',
+            }}
+          >
+            <Typography variant="subtitle1">Основные данные</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Укажите логин, имя, пароль и роль, чтобы сотрудник мог войти в систему.
+            </Typography>
+          </Box>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Логин"
+                value={createUserForm.login}
+                onChange={(event) => setCreateUserForm((previous) => ({ ...previous, login: event.target.value }))}
+                helperText="Уникальный логин для входа"
+              />
+            </Grid>
+            <Grid item xs={12} md={8}>
+              <TextField
+                label="ФИО"
+                value={createUserForm.fullName}
+                onChange={(event) => setCreateUserForm((previous) => ({ ...previous, fullName: event.target.value }))}
+                placeholder="Фамилия Имя Отчество"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Email"
+                value={createUserForm.email}
+                onChange={(event) => setCreateUserForm((previous) => ({ ...previous, email: event.target.value }))}
+                placeholder="user@company.ru"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Телефон"
+                value={createUserForm.phone}
+                onChange={(event) => setCreateUserForm((previous) => ({ ...previous, phone: event.target.value }))}
+                placeholder="+7 (999) 123-45-67"
+              />
+            </Grid>
+          </Grid>
+
+          <Box
+            sx={{
+              p: 2.2,
+              borderRadius: '16px',
+              bgcolor: alpha(theme.palette.secondary.main, 0.04),
+              border: '1px solid rgba(15,157,88,0.10)',
+            }}
+          >
+            <Typography variant="subtitle1">Доступы и привязка</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Выберите роль и при необходимости привяжите пользователя к компании-клиенту.
+            </Typography>
+          </Box>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Пароль"
+                type="password"
+                value={createUserForm.password}
+                onChange={(event) => setCreateUserForm((previous) => ({ ...previous, password: event.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
               <TextField select label="Роль" value={createUserForm.role} onChange={(event) => setCreateUserForm((previous) => ({ ...previous, role: event.target.value }))}>
                 {data.roles.map((item) => (
                   <MenuItem key={item.value} value={item.value}>
@@ -3439,6 +3602,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                   </MenuItem>
                 ))}
               </TextField>
+            </Grid>
+            <Grid item xs={12} md={4}>
               <TextField select label="Клиент" value={createUserForm.clientCompanyId} onChange={(event) => setCreateUserForm((previous) => ({ ...previous, clientCompanyId: event.target.value }))}>
                 <MenuItem value="">Нет</MenuItem>
                 {data.clients.map((item) => (
@@ -3447,72 +3612,22 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
                   </MenuItem>
                 ))}
               </TextField>
-              <Button type="submit" variant="contained" disabled={actionLoading}>
-                Создать пользователя
-              </Button>
-            </Stack>
-          </Box>
-        </SectionCard>
-      </Grid>
-      <Grid item xs={12} md={7}>
-        <SectionCard title="Пользователи" subtitle="Аккаунты сотрудников и их роли">
-          <ListControls
-            search={userFilters.search}
-            onSearchChange={(value) => setUserFilters((previous) => ({ ...previous, search: value }))}
-            searchLabel="Поиск пользователей"
-            searchPlaceholder="Имя, логин, email, телефон"
-            sortValue={userFilters.sort}
-            onSortChange={(value) => setUserFilters((previous) => ({ ...previous, sort: value }))}
-            sortOptions={userSortOptions}
-            filters={[
-              {
-                label: 'Роль',
-                value: userFilters.role,
-                onChange: (value) => setUserFilters((previous) => ({ ...previous, role: value })),
-                options: userRoleOptions,
-              },
-              {
-                label: 'Состояние',
-                value: userFilters.active,
-                onChange: (value) => setUserFilters((previous) => ({ ...previous, active: value })),
-                options: [
-                  { value: 'ALL', label: 'Все' },
-                  { value: 'ACTIVE', label: 'Активные' },
-                  { value: 'INACTIVE', label: 'Отключённые' },
-                ],
-              },
-            ]}
-          />
-          <Stack spacing={1.2}>
-            {filteredUsers.length ? (
-              filteredUsers.map((user) => (
-                <Paper key={user.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                    <Box>
-                      <Typography variant="subtitle1">{user.fullName}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {user.email} · {user.phone}
-                      </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
-                      <Chip label={getRoleLabel(user.role)} color="primary" size="small" />
-                      <Chip label={user.active ? 'Активен' : 'Отключён'} color={user.active ? 'success' : 'default'} size="small" />
-                    </Stack>
-                  </Stack>
-                  {user.clientCompanyName ? (
-                    <Typography variant="caption" color="text.secondary">
-                      Привязан к: {user.clientCompanyName}
-                    </Typography>
-                  ) : null}
-                </Paper>
-              ))
-            ) : (
-              <EmptyState title="Пользователей нет" subtitle="После создания сотрудников они появятся здесь." />
-            )}
+            </Grid>
+          </Grid>
+
+          <Divider />
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              После сохранения сотрудник появится в списке пользователей и сможет войти в систему.
+            </Typography>
+            <Button type="submit" variant="contained" disabled={actionLoading}>
+              Создать пользователя
+            </Button>
           </Stack>
-        </SectionCard>
-      </Grid>
-    </Grid>
+        </Stack>
+      </Box>
+    </SectionCard>
   );
 
   const renderClients = () => (
@@ -3854,8 +3969,8 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             </Stack>
           </Stack>
         </Box>
-      </SectionCard>
-    );
+    </SectionCard>
+  );
   };
 
   const renderStatuses = () => (
@@ -3987,6 +4102,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
             {!selectedOrderId && tab === 'support-chat' ? renderSupportChatSection() : null}
             {!selectedOrderId && tab === 'create-client' ? renderCreateClientPage() : null}
             {!selectedOrderId && tab === 'create-order' ? renderCreateOrderPage() : null}
+            {!selectedOrderId && tab === 'create-user' ? renderCreateUserPage() : null}
             {!selectedOrderId && tab === 'users' ? renderUsers() : null}
             {!selectedOrderId && tab === 'clients' ? renderClients() : null}
             {!selectedOrderId && tab === 'statuses' ? renderStatuses() : null}
