@@ -187,7 +187,6 @@ const ROLE_TABS = {
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },
     { value: 'orders', label: 'Заказы', icon: <AssignmentRoundedIcon fontSize="small" /> },
     { value: 'clients', label: 'Клиенты', icon: <BusinessRoundedIcon fontSize="small" /> },
-    { value: 'support-chat', label: 'Чаты клиентов', icon: <GroupRoundedIcon fontSize="small" /> },
   ],
   EXECUTOR: [
     { value: 'dashboard', label: 'Обзор', icon: <DashboardRoundedIcon fontSize="small" /> },

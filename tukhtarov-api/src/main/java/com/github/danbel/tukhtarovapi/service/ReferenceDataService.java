@@ -167,7 +167,7 @@ public class ReferenceDataService {
 
     @Transactional
     public ClientDto updateClient(Long id, UpdateClientRequest request, AuthenticatedUser currentUser) {
-        ensureAdmin(currentUser);
+        ensureAdminOrManagerForUpdate(currentUser);
         ClientCompany company = clientCompanyRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Клиент не найден"));
         if (request.name() != null) {
@@ -200,6 +200,12 @@ public class ReferenceDataService {
     private void ensureAdminOrManager(AuthenticatedUser currentUser) {
         if (currentUser != null && currentUser.role() != UserRole.ADMIN && currentUser.role() != UserRole.MANAGER) {
             throw new org.springframework.security.access.AccessDeniedException("Недостаточно прав для просмотра данных");
+        }
+    }
+
+    private void ensureAdminOrManagerForUpdate(AuthenticatedUser currentUser) {
+        if (currentUser != null && currentUser.role() != UserRole.ADMIN && currentUser.role() != UserRole.MANAGER) {
+            throw new org.springframework.security.access.AccessDeniedException("Только администратор или менеджер могут выполнять это действие");
         }
     }
 }
