@@ -2602,7 +2602,7 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
 
   const renderOrdersWorkspace = (list) => (
     <Grid container spacing={2.2}>
-      <Grid item xs={12} lg={4}>
+      <Grid item xs={12} lg={auth.role === 'CLIENT' ? 12 : 4}>
         <SectionCard
           title={auth.role === 'EXECUTOR' ? 'Очередь задач' : auth.role === 'CLIENT' ? 'Мои заказы' : 'Список заказов'}
           subtitle="Откройте карточку, чтобы работать с деталями заказа"
@@ -2634,9 +2634,11 @@ function Workspace({ auth, onLogout, snackbar, setSnackbar }) {
           {renderOrderList(list)}
         </SectionCard>
       </Grid>
-      <Grid item xs={12} lg={8}>
-        {renderOrderDetail()}
-      </Grid>
+      {auth.role !== 'CLIENT' ? (
+        <Grid item xs={12} lg={8}>
+          {renderOrderDetail()}
+        </Grid>
+      ) : null}
     </Grid>
   );
 
