@@ -28,6 +28,9 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         return path.endsWith("/auth/login")
                 || path.endsWith("/auth/register")
                 || path.endsWith("/error")
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/swagger-ui/")
+                || path.startsWith("/v3/api-docs")
                 || "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
