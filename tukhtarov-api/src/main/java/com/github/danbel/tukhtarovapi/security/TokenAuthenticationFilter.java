@@ -25,12 +25,17 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
+        boolean isSwaggerPath = path.equals("/swagger-ui.html")
+                || path.equals("/api/swagger-ui.html")
+                || path.startsWith("/swagger-ui/")
+                || path.startsWith("/api/swagger-ui/")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/api/v3/api-docs");
+
         return path.endsWith("/auth/login")
                 || path.endsWith("/auth/register")
                 || path.endsWith("/error")
-                || path.equals("/swagger-ui.html")
-                || path.startsWith("/swagger-ui/")
-                || path.startsWith("/v3/api-docs")
+                || isSwaggerPath
                 || "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
