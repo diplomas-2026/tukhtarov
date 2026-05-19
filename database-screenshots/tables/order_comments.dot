@@ -1,0 +1,7 @@
+digraph single_table {
+  graph [rankdir=TB, fontsize=18];
+  node [shape=plain, fontname="Arial"];
+  label="tukhtarov — order_comments";
+  labelloc=t;
+  "order_comments" [label=<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6"><TR><TD BGCOLOR="#eeeeee" COLSPAN="3"><B>order_comments</B></TD></TR><TR><TD><B>Поле</B></TD><TD><B>Тип</B></TD><TD><B>Модификаторы</B></TD></TR><TR><TD ALIGN="LEFT">id</TD><TD ALIGN="LEFT">bigint(64,0)</TD><TD ALIGN="LEFT">PK, NOT NULL</TD></TR><TR><TD ALIGN="LEFT">author_name</TD><TD ALIGN="LEFT">character varying(255)</TD><TD ALIGN="LEFT"></TD></TR><TR><TD ALIGN="LEFT">author_role</TD><TD ALIGN="LEFT">character varying(255)</TD><TD ALIGN="LEFT"></TD></TR><TR><TD ALIGN="LEFT">created_at</TD><TD ALIGN="LEFT">timestamp without time zone</TD><TD ALIGN="LEFT"></TD></TR><TR><TD ALIGN="LEFT">message</TD><TD ALIGN="LEFT">character varying(255)</TD><TD ALIGN="LEFT"></TD></TR><TR><TD ALIGN="LEFT">visible_to_client</TD><TD ALIGN="LEFT">boolean</TD><TD ALIGN="LEFT">NOT NULL</TD></TR><TR><TD ALIGN="LEFT">order_id</TD><TD ALIGN="LEFT">bigint(64,0)</TD><TD ALIGN="LEFT">FK → production_orders.id</TD></TR></TABLE>>];
+}
